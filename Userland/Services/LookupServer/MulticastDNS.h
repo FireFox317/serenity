@@ -36,12 +36,12 @@ private:
     Name m_hostname;
 
     static constexpr sockaddr_in mdns_addr {
-        AF_INET,
+        .sin_family = AF_INET,
         // htons(5353)
-        0xe914,
+        .sin_port = 0xe914,
         // 224.0.0.251
-        { 0xfb0000e0 },
-        { 0 }
+        .sin_addr = { 0xfb0000e0 },
+        .sin_zero = { 0 }
     };
 };
 

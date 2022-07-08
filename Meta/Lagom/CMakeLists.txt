@@ -327,6 +327,12 @@ if (BUILD_LAGOM)
         LIBS LibCrypto
     )
 
+    file(GLOB LIBIMAGEDECODERCLIENT CONFIGURE_DEPENDS "../../Userland/Libraries/LibImageDecoderClient/*.cpp")
+    lagom_lib(ImageDecoderClient imagedecoderclient
+        SOURCES ${LIBIMAGEDECODERCLIENT}
+        LIBS LibIPC LibGfx
+    )
+
     # Crypto
     file(GLOB LIBCRYPTO_SOURCES CONFIGURE_DEPENDS "../../Userland/Libraries/LibCrypto/*.cpp")
     file(GLOB LIBCRYPTO_SUBDIR_SOURCES CONFIGURE_DEPENDS "../../Userland/Libraries/LibCrypto/*/*.cpp")
@@ -566,7 +572,7 @@ if (BUILD_LAGOM)
 
         # Lagom Examples
         add_executable(TestApp TestApp.cpp)
-        target_link_libraries(TestApp LibCore)
+        target_link_libraries(TestApp LibImageDecoderClient LibMain LibCore)
 
         add_executable(TestJson TestJson.cpp)
         target_link_libraries(TestJson LibCore)

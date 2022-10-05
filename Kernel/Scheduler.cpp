@@ -8,9 +8,9 @@
 #include <AK/ScopeGuard.h>
 #include <AK/Singleton.h>
 #include <AK/Time.h>
-#include <Kernel/Arch/InterruptDisabler.h>
 #include <Kernel/Arch/x86/TrapFrame.h>
 #include <Kernel/Debug.h>
+#include <Kernel/InterruptDisabler.h>
 #include <Kernel/Panic.h>
 #include <Kernel/PerformanceManager.h>
 #include <Kernel/Process.h>

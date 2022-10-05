@@ -8,7 +8,6 @@
 #include <AK/StdLibExtras.h>
 #include <AK/Time.h>
 #if ARCH(I386) || ARCH(X86_64)
-#    include <Kernel/Arch/InterruptDisabler.h>
 #    include <Kernel/Arch/x86/Time/APICTimer.h>
 #    include <Kernel/Arch/x86/Time/HPET.h>
 #    include <Kernel/Arch/x86/Time/HPETComparator.h>
@@ -19,6 +18,7 @@
 #endif
 #include <Kernel/CommandLine.h>
 #include <Kernel/Firmware/ACPI/Parser.h>
+#include <Kernel/InterruptDisabler.h>
 #include <Kernel/PerformanceManager.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/Sections.h>

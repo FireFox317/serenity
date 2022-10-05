@@ -19,7 +19,6 @@
 #include <Kernel/StdLib.h>
 #include <Kernel/Thread.h>
 
-#include <Kernel/Arch/InterruptDisabler.h>
 #include <Kernel/Arch/Interrupts.h>
 #include <Kernel/Arch/Processor.h>
 #include <Kernel/Arch/SafeMem.h>
@@ -28,6 +27,7 @@
 #include <Kernel/Arch/x86/MSR.h>
 #include <Kernel/Arch/x86/ProcessorInfo.h>
 #include <Kernel/Arch/x86/TrapFrame.h>
+#include <Kernel/InterruptDisabler.h>
 
 #include <Kernel/Memory/PageDirectory.h>
 #include <Kernel/Memory/ScopedAddressSpaceSwitcher.h>

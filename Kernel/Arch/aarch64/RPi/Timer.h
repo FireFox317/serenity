@@ -8,15 +8,34 @@
 
 #include <AK/Types.h>
 #include <Kernel/Interrupts/IRQHandler.h>
+#include <Kernel/Library/NonnullLockRefPtr.h>
+#include <Kernel/Time/HardwareTimer.h>
 
 namespace Kernel::RPi {
 
 struct TimerRegisters;
 
-class Timer : public IRQHandler {
+class Timer final : public HardwareTimer<IRQHandler> {
 public:
-    Timer();
-    static Timer& the();
+    virtual ~Timer();
+
+    static NonnullLockRefPtr<Timer> initialize(Function<void(RegisterState const&)>);
+    // Timer(Function<void(RegisterState const&)>);
+
+    virtual HardwareTimerType timer_type() const override { return HardwareTimerType::i8253; }
+    virtual StringView model() const override { return "i8254"sv; }
+    virtual size_t ticks_per_second() const override;
+
+    virtual bool is_periodic() const override { return true; }
+    virtual bool is_periodic_capable() const override { return true; }
+    virtual void set_periodic() override { }
+    virtual void set_non_periodic() override { }
+    virtual void disable() override { }
+
+    virtual void reset_to_default_ticks_per_second() override;
+    virtual bool try_to_set_frequency(size_t frequency) override;
+    virtual bool is_capable_of_frequency(size_t frequency) const override;
+    virtual size_t calculate_nearest_possible_frequency(size_t frequency) const override;
 
     u64 microseconds_since_boot();
 
@@ -43,6 +62,8 @@ public:
     static u32 set_clock_rate(ClockID, u32 rate_hz, bool skip_setting_turbo = true);
 
 private:
+    explicit Timer(Function<void(RegisterState const&)>);
+
     enum class TimerID : u32 {
         Timer0 = 0,
         Timer1 = 1,

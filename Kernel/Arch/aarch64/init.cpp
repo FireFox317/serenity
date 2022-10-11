@@ -14,6 +14,7 @@
 #include <Kernel/Arch/InterruptManagement.h>
 #include <Kernel/Arch/Interrupts.h>
 #include <Kernel/Arch/Processor.h>
+#include <Kernel/Arch/aarch64/ASM_wrapper.h>
 #include <Kernel/Arch/aarch64/BootPPMParser.h>
 #include <Kernel/Arch/aarch64/CPU.h>
 #include <Kernel/Arch/aarch64/RPi/Framebuffer.h>
@@ -150,14 +151,21 @@ extern "C" [[noreturn]] void init()
     InterruptManagement::initialize();
     Processor::enable_interrupts();
 
+    TimeManagement::initialize(0);
+
     auto firmware_version = query_firmware_version();
     dmesgln("Firmware version: {}", firmware_version);
 
-    auto& timer = RPi::Timer::the();
-    timer.set_interrupt_interval_usec(1'000'000);
-    timer.enable_interrupt_mode();
+    // auto& timer = RPi::Timer::the();
+    // timer.set_interrupt_interval_usec(1'000'000);
+    // timer.enable_interrupt_mode();
 
     dmesgln("Enter loop");
+
+    while (true) {
+        dmesgln("test");
+        Kernel::Aarch64::Asm::wait_cycles(100000000);
+    }
 
     // This will not disable interrupts, so the timer will still fire and show that
     // interrupts are working!

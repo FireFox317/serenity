@@ -9,6 +9,7 @@
 #include <Kernel/Arch/aarch64/RPi/MMIO.h>
 #include <Kernel/Arch/aarch64/RPi/Mailbox.h>
 #include <Kernel/Arch/aarch64/RPi/Timer.h>
+#include <Kernel/Sections.h>
 
 namespace Kernel::RPi {
 
@@ -29,16 +30,22 @@ enum FlagBits {
     SystemTimerMatch3 = 1 << 3,
 };
 
-Timer::Timer()
-    : IRQHandler(1)
+Timer::Timer(Function<void(RegisterState const&)> callback)
+    : HardwareTimer(1, move(callback))
     , m_registers(MMIO::the().peripheral<TimerRegisters>(0x3000))
 {
+    // OPTIMAL_TICKS_PER_SECOND_RATE = 1/250
+    // dbgln("value: {}", (int)((1.0 / OPTIMAL_TICKS_PER_SECOND_RATE) * 1e6));
+    set_interrupt_interval_usec((1.0 / OPTIMAL_TICKS_PER_SECOND_RATE) * 1e6);
+    // set_interrupt_interval_usec(4000);
+    enable_interrupt_mode();
 }
 
-Timer& Timer::the()
+Timer::~Timer() { }
+
+UNMAP_AFTER_INIT NonnullLockRefPtr<Timer> Timer::initialize(Function<void(RegisterState const&)> callback)
 {
-    static AK::NeverDestroyed<Timer> instance;
-    return *instance;
+    return adopt_lock_ref(*new Timer(move(callback)));
 }
 
 u64 Timer::microseconds_since_boot()
@@ -52,15 +59,54 @@ u64 Timer::microseconds_since_boot()
     return (static_cast<u64>(high) << 32) | low;
 }
 
-bool Timer::handle_irq(RegisterState const&)
+size_t Timer::ticks_per_second() const
 {
-    dmesgln("Timer fired: {} us", m_current_timer_value);
+    return m_frequency;
+};
+
+void Timer::reset_to_default_ticks_per_second()
+{
+    // InterruptDisabler disabler;
+    // bool success = try_to_set_frequency(OPTIMAL_TICKS_PER_SECOND_RATE);
+    // VERIFY(success);
+}
+
+bool Timer::try_to_set_frequency(size_t)
+{
+    // InterruptDisabler disabler;
+    // if (!is_capable_of_frequency(frequency))
+    //     return false;
+    // disable_irq();
+    // size_t reload_value = BASE_FREQUENCY / frequency;
+    // IO::out8(TIMER0_CTL, LSB(reload_value));
+    // IO::out8(TIMER0_CTL, MSB(reload_value));
+    // m_frequency = frequency;
+    // enable_irq();
+    return true;
+}
+bool Timer::is_capable_of_frequency(size_t frequency) const
+{
+    VERIFY(frequency != 0);
+    return true;
+}
+size_t Timer::calculate_nearest_possible_frequency(size_t frequency) const
+{
+    VERIFY(frequency != 0);
+    return frequency;
+}
+
+bool Timer::handle_irq(RegisterState const& regs)
+{
+    // dmesgln("Timer fired: {} us", m_current_timer_value);
+    auto result = HardwareTimer::handle_irq(regs);
 
     m_current_timer_value += m_interrupt_interval;
     set_compare(TimerID::Timer1, m_current_timer_value);
 
+    VERIFY(m_current_timer_value > microseconds_since_boot());
+
     clear_interrupt(TimerID::Timer1);
-    return true;
+    return result;
 };
 
 void Timer::enable_interrupt_mode()

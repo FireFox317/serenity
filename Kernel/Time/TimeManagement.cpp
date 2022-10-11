@@ -15,6 +15,8 @@
 #    include <Kernel/Arch/x86/Time/RTC.h>
 #    include <Kernel/Arch/x86/common/Interrupts/APIC.h>
 #    include <Kernel/Arch/x86/common/RTC.h>
+#elif ARCH(AARCH64)
+#    include <Kernel/Arch/aarch64/RPi/Timer.h>
 #endif
 #include <Kernel/CommandLine.h>
 #include <Kernel/Firmware/ACPI/Parser.h>
@@ -91,6 +93,7 @@ Time TimeManagement::monotonic_time(TimePrecision precision) const
     // This is the time when last updated by an interrupt.
     u64 seconds;
     u32 ticks;
+    // dbgln("Calling monotonic time");
 
     bool do_query = precision == TimePrecision::Precise && m_can_query_precise_time;
 
@@ -101,12 +104,14 @@ Time TimeManagement::monotonic_time(TimePrecision precision) const
         ticks = m_ticks_this_second;
 
         if (do_query) {
+#if ARCH(I386) || ARCH(X86_64)
             // We may have to do this over again if the timer interrupt fires
             // while we're trying to query the information. In that case, our
             // seconds and ticks became invalid, producing an incorrect time.
             // Be sure to not modify m_seconds_since_boot and m_ticks_this_second
             // because this may only be modified by the interrupt handler
             HPET::the().update_time(seconds, ticks, true);
+#endif
         }
     } while (update_iteration != m_update2.load(AK::MemoryOrder::memory_order_acquire));
 
@@ -163,6 +168,11 @@ UNMAP_AFTER_INIT void TimeManagement::initialize([[maybe_unused]] u32 cpu)
             apic_timer->enable_local_timer();
         }
     }
+#else
+    if (cpu == 0) {
+        VERIFY(!s_the.is_initialized());
+        s_the.ensure_instance();
+    }
 #endif
 }
 
@@ -182,7 +192,11 @@ time_t TimeManagement::ticks_per_second() const
 
 time_t TimeManagement::boot_time()
 {
+#if ARCH(I386) || ARCH(X86_64)
     return RTC::boot_time();
+#else
+    return 0;
+#endif
 }
 
 UNMAP_AFTER_INIT TimeManagement::TimeManagement()
@@ -209,6 +223,8 @@ UNMAP_AFTER_INIT TimeManagement::TimeManagement()
     } else if (!probe_and_set_x86_legacy_hardware_timers()) {
         VERIFY_NOT_REACHED();
     }
+#elif ARCH(AARCH64)
+    probe_and_set_aarch64_hardware_timers();
 #endif
 }
 
@@ -350,12 +366,6 @@ UNMAP_AFTER_INIT bool TimeManagement::probe_and_set_x86_legacy_hardware_timers()
     m_time_ticks_per_second = m_time_keeper_timer->ticks_per_second();
     return true;
 }
-#endif
-
-void TimeManagement::update_time(RegisterState const&)
-{
-    TimeManagement::the().increment_time_since_boot();
-}
 
 void TimeManagement::increment_time_since_boot_hpet()
 {
@@ -380,6 +390,21 @@ void TimeManagement::increment_time_since_boot_hpet()
     m_update1.store(update_iteration + 1, AK::MemoryOrder::memory_order_release);
 
     update_time_page();
+}
+#elif ARCH(AARCH64)
+UNMAP_AFTER_INIT bool TimeManagement::probe_and_set_aarch64_hardware_timers()
+{
+    m_hardware_timers.append(RPi::Timer::initialize(TimeManagement::update_time));
+    m_time_keeper_timer = m_hardware_timers[0];
+    m_time_ticks_per_second = m_time_keeper_timer->ticks_per_second();
+    return true;
+}
+
+#endif
+
+void TimeManagement::update_time(RegisterState const&)
+{
+    TimeManagement::the().increment_time_since_boot();
 }
 
 void TimeManagement::increment_time_since_boot()

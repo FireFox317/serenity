@@ -13,6 +13,7 @@
 #include <AK/Types.h>
 #include <Kernel/API/TimePage.h>
 #include <Kernel/Arch/RegisterState.h>
+#include <Kernel/Forward.h>
 #include <Kernel/Library/LockRefPtr.h>
 #include <Kernel/Library/NonnullLockRefPtrVector.h>
 #include <Kernel/UnixTypes.h>
@@ -54,7 +55,6 @@ public:
 
     static void update_time(RegisterState const&);
     static void update_time_hpet(RegisterState const&);
-    void increment_time_since_boot_hpet();
     void increment_time_since_boot();
 
     static bool is_hpet_periodic_mode_allowed();
@@ -83,6 +83,9 @@ private:
 #if ARCH(I386) || ARCH(X86_64)
     bool probe_and_set_x86_legacy_hardware_timers();
     bool probe_and_set_x86_non_legacy_hardware_timers();
+    void increment_time_since_boot_hpet();
+#elif ARCH(AARCH64)
+    bool probe_and_set_aarch64_hardware_timers();
 #endif
     Vector<HardwareTimerBase*> scan_and_initialize_periodic_timers();
     Vector<HardwareTimerBase*> scan_for_non_periodic_timers();

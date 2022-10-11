@@ -515,6 +515,8 @@ else()
         Interrupts/IRQHandler.cpp
         Interrupts/SharedIRQHandler.cpp
         Interrupts/UnhandledInterruptHandler.cpp
+
+        Time/TimeManagement.cpp
     )
 
     # Otherwise linker errors e.g undefined reference to `__aarch64_cas8_acq_rel'

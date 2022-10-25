@@ -13,8 +13,8 @@
 #include <Kernel/kstdio.h>
 
 // Process
-char const* asm_signal_trampoline = nullptr;
-char const* asm_signal_trampoline_end = nullptr;
+// char const* asm_signal_trampoline = nullptr;
+// char const* asm_signal_trampoline_end = nullptr;
 
 namespace Kernel {
 

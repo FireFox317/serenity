@@ -54,8 +54,9 @@ struct ThreadSpecificData {
 
 #define THREAD_AFFINITY_DEFAULT 0xffffffff
 
+#if ARCH(I386) || ARCH(X86_64)
 struct ThreadRegisters {
-#if ARCH(I386)
+#    if ARCH(I386)
     FlatPtr ss;
     FlatPtr gs;
     FlatPtr fs;
@@ -72,7 +73,7 @@ struct ThreadRegisters {
     FlatPtr eip;
     FlatPtr esp0;
     FlatPtr ss0;
-#else
+#    else
     FlatPtr rdi;
     FlatPtr rsi;
     FlatPtr rbp;
@@ -91,45 +92,59 @@ struct ThreadRegisters {
     FlatPtr r15;
     FlatPtr rip;
     FlatPtr rsp0;
-#endif
+#    endif
     FlatPtr cs;
 
-#if ARCH(I386)
+#    if ARCH(I386)
     FlatPtr eflags;
     FlatPtr flags() const { return eflags; }
     void set_flags(FlatPtr value) { eflags = value; }
     void set_sp(FlatPtr value) { esp = value; }
     void set_sp0(FlatPtr value) { esp0 = value; }
     void set_ip(FlatPtr value) { eip = value; }
-#else
+#    else
     FlatPtr rflags;
     FlatPtr flags() const { return rflags; }
     void set_flags(FlatPtr value) { rflags = value; }
     void set_sp(FlatPtr value) { rsp = value; }
     void set_sp0(FlatPtr value) { rsp0 = value; }
     void set_ip(FlatPtr value) { rip = value; }
-#endif
+#    endif
 
     FlatPtr cr3;
 
     FlatPtr ip() const
     {
-#if ARCH(I386)
+#    if ARCH(I386)
         return eip;
-#else
+#    else
         return rip;
-#endif
+#    endif
     }
 
     FlatPtr sp() const
     {
-#if ARCH(I386)
+#    if ARCH(I386)
         return esp;
-#else
+#    else
         return rsp;
-#endif
+#    endif
     }
 };
+#elif ARCH(AARCH64)
+struct ThreadRegisters {
+    u64 x[31];
+    u64 elr_el1;
+    u64 sp_el0;
+
+    FlatPtr ip() const { return elr_el1; }
+    void set_ip(FlatPtr value) { elr_el1 = value; }
+
+    void set_sp(FlatPtr value) { sp_el0 = value; }
+};
+#else
+#    error Unknown architecture
+#endif
 
 class Thread
     : public ListedRefCounted<Thread, LockType::Spinlock>

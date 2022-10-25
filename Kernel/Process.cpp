@@ -190,8 +190,7 @@ LockRefPtr<Process> Process::create_kernel_process(LockRefPtr<Thread>& first_thr
 #elif ARCH(X86_64)
     first_thread->regs().rdi = FlatPtr(entry_data); // entry function argument is expected to be in regs.rdi
 #elif ARCH(AARCH64)
-    (void)entry_data;
-    TODO_AARCH64();
+    first_thread->regs().x[0] = FlatPtr(entry_data);
 #else
 #    error Unknown architecture
 #endif
@@ -374,6 +373,17 @@ void signal_trampoline_dummy()
         :
         : "i"(Syscall::SC_sigreturn),
         "i"(offset_to_first_register_slot));
+#elif ARCH(AARCH64)
+    asm(
+        ".global asm_signal_trampoline\n"
+        "asm_signal_trampoline:\n"
+        // TODO: Implement this for aarch64
+        "wfi\n"
+        "\n"
+        ".global asm_signal_trampoline_end\n"
+        "asm_signal_trampoline_end: \n");
+#else
+#    error Unknown architecture
 #endif
 }
 
@@ -802,7 +812,15 @@ LockRefPtr<Thread> Process::create_kernel_thread(void (*entry)(void*), void* ent
 
     auto& regs = thread->regs();
     regs.set_ip((FlatPtr)entry);
+#if ARCH(I386)
     regs.set_sp((FlatPtr)entry_data); // entry function argument is expected to be in the SP register
+#elif ARCH(X86_64)
+    regs.rdi = (FlatPtr)entry_data;
+#elif ARCH(AARCH64)
+    regs.x[0] = (FlatPtr)entry_data;
+#else
+#    error Unknown architecture
+#endif
 
     SpinlockLocker lock(g_scheduler_lock);
     thread->set_state(Thread::State::Runnable);

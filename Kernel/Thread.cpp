@@ -75,12 +75,16 @@ Thread::Thread(NonnullLockRefPtr<Process> process, NonnullOwnPtr<Memory::Region>
     if constexpr (THREAD_DEBUG)
         dbgln("Created new thread {}({}:{})", m_process->name(), m_process->pid().value(), m_tid.value());
 
+    m_kernel_stack_base = m_kernel_stack_region->vaddr().get();
+    m_kernel_stack_top = m_kernel_stack_region->vaddr().offset(default_kernel_stack_size).get() & ~(FlatPtr)0x7u;
+
+#if ARCH(I386) || ARCH(X86_64)
     reset_fpu_state();
 
     // Only IF is set when a process boots.
     m_regs.set_flags(0x0202);
 
-#if ARCH(I386)
+#    if ARCH(I386)
     if (m_process->is_kernel_process()) {
         m_regs.cs = GDT_SELECTOR_CODE0;
         m_regs.ds = GDT_SELECTOR_DATA0;
@@ -96,21 +100,14 @@ Thread::Thread(NonnullLockRefPtr<Process> process, NonnullOwnPtr<Memory::Region>
         m_regs.ss = GDT_SELECTOR_DATA3 | 3;
         m_regs.gs = GDT_SELECTOR_TLS | 3;
     }
-#elif ARCH(X86_64)
+#    elif ARCH(X86_64)
     if (m_process->is_kernel_process())
         m_regs.cs = GDT_SELECTOR_CODE0;
     else
         m_regs.cs = GDT_SELECTOR_CODE3 | 3;
-#elif ARCH(AARCH64)
-    TODO_AARCH64();
-#else
-#    error Unknown architecture
-#endif
+#    endif
 
     m_regs.cr3 = m_process->address_space().with([](auto& space) { return space->page_directory().cr3(); });
-
-    m_kernel_stack_base = m_kernel_stack_region->vaddr().get();
-    m_kernel_stack_top = m_kernel_stack_region->vaddr().offset(default_kernel_stack_size).get() & ~(FlatPtr)0x7u;
 
     if (m_process->is_kernel_process()) {
         m_regs.set_sp(m_kernel_stack_top);
@@ -118,11 +115,16 @@ Thread::Thread(NonnullLockRefPtr<Process> process, NonnullOwnPtr<Memory::Region>
     } else {
         // Ring 3 processes get a separate stack for ring 0.
         // The ring 3 stack will be assigned by exec().
-#if ARCH(I386)
+#    if ARCH(I386)
         m_regs.ss0 = GDT_SELECTOR_DATA0;
-#endif
+#    endif
         m_regs.set_sp0(m_kernel_stack_top);
     }
+#elif ARCH(AARCH64)
+    m_regs.set_sp(m_kernel_stack_top);
+#else
+#    error Unknown architecture
+#endif
 
     // We need to add another reference if we could successfully create
     // all the resources needed for this thread. The reason for this is that
@@ -1234,7 +1236,7 @@ DispatchSignalResult Thread::dispatch_signal(u8 signal)
     auto signal_trampoline_addr = process.signal_trampoline().get();
     regs.set_ip(signal_trampoline_addr);
 
-    dbgln_if(SIGNAL_DEBUG, "Thread in state '{}' has been primed with signal handler {:#04x}:{:p} to deliver {}", state_string(), m_regs.cs, m_regs.ip(), signal);
+    dbgln_if(SIGNAL_DEBUG, "Thread in state '{}' has been primed with signal handler {:p} to deliver {}", state_string(), m_regs.ip(), signal);
 
     return DispatchSignalResult::Continue;
 }

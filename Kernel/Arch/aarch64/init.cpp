@@ -14,6 +14,7 @@
 #include <Kernel/Arch/InterruptManagement.h>
 #include <Kernel/Arch/Interrupts.h>
 #include <Kernel/Arch/Processor.h>
+#include <Kernel/Arch/aarch64/ASM_wrapper.h>
 #include <Kernel/Arch/aarch64/BootPPMParser.h>
 #include <Kernel/Arch/aarch64/CPU.h>
 #include <Kernel/Arch/aarch64/RPi/Framebuffer.h>
@@ -27,10 +28,16 @@
 #include <Kernel/KSyms.h>
 #include <Kernel/Memory/MemoryManager.h>
 #include <Kernel/Panic.h>
+#include <Kernel/Scheduler.h>
 
 extern "C" void exception_common(Kernel::TrapFrame const* const trap_frame);
 extern "C" void exception_common(Kernel::TrapFrame const* const trap_frame)
 {
+    auto esr_el1 = Kernel::Aarch64::ESR_EL1::read();
+    if (esr_el1.EC == 0b100101 || esr_el1.EC == 0b100100) {
+        // Data Abort (MMU fault); 0b100101 -> no EL change, 0b100100 -> EL change
+        dbgln("Whoops page fault");
+    }
     constexpr bool print_stack_frame = true;
 
     if constexpr (print_stack_frame) {
@@ -50,6 +57,10 @@ extern "C" void exception_common(Kernel::TrapFrame const* const trap_frame)
 
         auto esr_el1 = Kernel::Aarch64::ESR_EL1::read();
         dbgln("esr_el1: EC({:#b}) IL({:#b}) ISS({:#b}) ISS2({:#b})", esr_el1.EC, esr_el1.IL, esr_el1.ISS, esr_el1.ISS2);
+
+        auto ip = regs->elr_el1;
+        auto const* symbol = symbolicate_kernel_address(ip);
+        dbgln("\033[31;1m{:p}  {} +{}\033[0m", ip, (symbol ? symbol->name : "(k?)"), (symbol ? ip - symbol->address : 0));
 
         dump_backtrace_from_base_pointer(regs->x[29]);
     }
@@ -84,6 +95,50 @@ ALWAYS_INLINE static Processor& bootstrap_processor()
 }
 
 Atomic<Graphics::Console*> g_boot_console;
+
+[[noreturn]] static void init_stage2(void*);
+void init_stage2(void*)
+{
+    Process::register_new(Process::current());
+
+    // LockRefPtr<Thread> thread;
+    // auto userspace_init = kernel_command_line().userspace_init();
+    // auto init_args = kernel_command_line().userspace_init_args();
+
+    // auto init_or_error = Process::try_create_user_process(thread, userspace_init, UserID(0), GroupID(0), move(init_args), {}, nullptr);
+    // if (init_or_error.is_error())
+    //     PANIC("init_stage2: Error spawning init process: {}", init_or_error.error());
+
+    // for (int i = 0; i < 100000; i++) {
+    //     dmesgln("         Hello from init_stage2!!! {}", i);
+    //     Aarch64::Asm::wait_cycles(100000);
+    //     // for (int y = 0; y < 1000000000; y++){
+    //     //     sum += y;
+    //     // }
+    // }
+    while (true) { }
+}
+
+// void hoi();
+// void hoi() {
+//     dump_backtrace();
+// }
+
+// static void more_work(void*);
+// void more_work(void*)
+// {
+//     for (int i = 0; i < 10; i++) {
+//         dmesgln("                  Hello from more_work!!! {}", i);
+//         Aarch64::Asm::wait_cycles(100000);
+//         // *((int*)0xdeadbee0) = 10;
+//         // hoi();
+//         // dump_backtrace();
+//         // for (int y = 0; y < 1000000000; y++){
+//         //     sum += y;
+//         // }
+//     }
+//     // while (true){}
+// }
 
 extern "C" [[noreturn]] void init()
 {
@@ -145,7 +200,31 @@ extern "C" [[noreturn]] void init()
     InterruptManagement::initialize();
     Processor::enable_interrupts();
 
+    // Note: We have to disable interrupts otherwise Scheduler::timer_tick might be called before the scheduler is started.
+    Processor::disable_interrupts();
     TimeManagement::initialize(0);
+
+    Process::initialize();
+
+    Scheduler::initialize();
+
+    {
+        LockRefPtr<Thread> init_stage2_thread;
+        (void)Process::create_kernel_process(init_stage2_thread, KString::must_create("init_stage2"sv), init_stage2, nullptr, THREAD_AFFINITY_DEFAULT, Process::RegisterProcess::No);
+        // We need to make sure we drop the reference for init_stage2_thread
+        // before calling into Scheduler::start, otherwise we will have a
+        // dangling Thread that never gets cleaned up
+    }
+
+    //     {
+    //     LockRefPtr<Thread> more_work_thread;
+    //     (void)Process::create_kernel_process(more_work_thread, KString::must_create("more_work"sv), more_work, nullptr, THREAD_AFFINITY_DEFAULT, Process::RegisterProcess::No);
+    //     // We need to make sure we drop the reference for init_stage2_thread
+    //     // before calling into Scheduler::start, otherwise we will have a
+    //     // dangling Thread that never gets cleaned up
+    // }
+
+    Scheduler::start();
 
     auto firmware_version = query_firmware_version();
     dmesgln("Firmware version: {}", firmware_version);

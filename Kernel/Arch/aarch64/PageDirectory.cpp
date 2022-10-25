@@ -12,7 +12,7 @@ namespace Kernel::Memory {
 
 void PageDirectory::register_page_directory(PageDirectory*)
 {
-    TODO_AARCH64();
+    // TODO_AARCH64();
 }
 
 void PageDirectory::deregister_page_directory(PageDirectory*)

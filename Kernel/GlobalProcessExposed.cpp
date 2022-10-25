@@ -9,7 +9,9 @@
 #include <AK/Try.h>
 #include <AK/UBSanitizer.h>
 #include <Kernel/Arch/InterruptManagement.h>
-#include <Kernel/Arch/x86/ProcessorInfo.h>
+#if ARCH(I386) || ARCH(X86_64)
+#    include <Kernel/Arch/x86/ProcessorInfo.h>
+#endif
 #include <Kernel/Bus/PCI/API.h>
 #include <Kernel/Bus/PCI/Access.h>
 #include <Kernel/CommandLine.h>
@@ -630,6 +632,7 @@ private:
     ProcFSCPUInformation();
     virtual ErrorOr<void> try_generate(KBufferBuilder& builder) override
     {
+#if ARCH(I386) || ARCH(X86_64)
         auto array = TRY(JsonArraySerializer<>::try_create(builder));
         TRY(Processor::try_for_each(
             [&](Processor& proc) -> ErrorOr<void> {
@@ -685,6 +688,13 @@ private:
             }));
         TRY(array.finish());
         return {};
+#elif ARCH(AARCH64)
+        (void)builder;
+        dmesgln("TODO: Implement ProcessorInfo for AArch64!");
+        return Error::from_errno(EINVAL);
+#else
+#    error Unknown architecture
+#endif
     }
 };
 class ProcFSDmesg final : public ProcFSGlobalInformation {

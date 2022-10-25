@@ -24,6 +24,7 @@ class PageDirectory;
 
 class Thread;
 class Processor;
+class TrapFrame;
 
 // FIXME This needs to go behind some sort of platform abstraction
 //       it is used between Thread and Processor.
@@ -53,12 +54,12 @@ public:
 
     void idle_begin() const
     {
-        TODO_AARCH64();
+        // TODO_AARCH64();
     }
 
     void idle_end() const
     {
-        TODO_AARCH64();
+        // TODO_AARCH64();
     }
 
     ALWAYS_INLINE static void pause()
@@ -84,7 +85,7 @@ public:
 
     ALWAYS_INLINE static bool is_initialized()
     {
-        return false;
+        return g_current_processor != nullptr;
     }
 
     static void flush_tlb_local(VirtualAddress vaddr, size_t page_count);
@@ -158,7 +159,7 @@ public:
 
     ALWAYS_INLINE static bool current_in_scheduler()
     {
-        auto current_processor = current();
+        auto& current_processor = current();
         return current_processor.m_in_scheduler;
     }
 
@@ -170,22 +171,21 @@ public:
     // FIXME: Share the critical functions with x86/Processor.h
     ALWAYS_INLINE static void enter_critical()
     {
-        auto current_processor = current();
-        current_processor.m_in_critical = current_processor.in_critical() + 1;
+        auto& current_processor = current();
+        current_processor.m_in_critical = current_processor.m_in_critical + 1;
     }
 
     ALWAYS_INLINE static void leave_critical()
     {
-        auto current_processor = current();
-        current_processor.m_in_critical = current_processor.in_critical() - 1;
+        auto& current_processor = current();
+        current_processor.m_in_critical = current_processor.m_in_critical - 1;
     }
 
     static u32 clear_critical();
 
     ALWAYS_INLINE static void restore_critical(u32 prev_critical)
     {
-        (void)prev_critical;
-        TODO_AARCH64();
+        current().m_in_critical = prev_critical;
     }
 
     ALWAYS_INLINE static u32 in_critical()
@@ -236,6 +236,9 @@ public:
     FlatPtr init_context(Thread& thread, bool leave_crit);
     static ErrorOr<Vector<FlatPtr, 32>> capture_stack_trace(Thread& thread, size_t max_frames = 0);
 
+    void enter_trap(TrapFrame& trap, bool raise_irq);
+    void exit_trap(TrapFrame& trap);
+
 private:
     Thread* m_current_thread;
     Thread* m_idle_thread;
@@ -246,6 +249,7 @@ private:
     FlatPtr m_in_irq { 0 };
     bool m_in_scheduler { false };
     bool m_invoke_scheduler_async { false };
+    bool m_scheduler_initialized { false };
 };
 
 }

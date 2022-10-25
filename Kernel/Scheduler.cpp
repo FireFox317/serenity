@@ -222,10 +222,10 @@ void Scheduler::pick_next()
 
     auto& thread_to_schedule = pull_next_runnable_thread();
     if constexpr (SCHEDULER_DEBUG) {
-        dbgln("Scheduler[{}]: Switch to {} @ {:#04x}:{:p}",
+        dbgln("Scheduler[{}]: Switch to {} @ {:p}",
             Processor::current_id(),
             thread_to_schedule,
-            thread_to_schedule.regs().cs, thread_to_schedule.regs().ip());
+            thread_to_schedule.regs().ip());
     }
 
     // We need to leave our first critical section before switching context,
@@ -479,8 +479,13 @@ void Scheduler::idle_loop(void*)
 
     for (;;) {
         proc.idle_begin();
+#if ARCH(I386) || ARCH(X86_64)
         asm("hlt");
-
+#elif ARCH(AARCH64)
+        asm("wfi");
+#else
+#    error Unknown architecture
+#endif
         proc.idle_end();
         VERIFY_INTERRUPTS_ENABLED();
         yield();

@@ -6,7 +6,7 @@
 
 .section .text.vector_table
 
-#define TRAP_FRAME_SIZE     272
+#define REGISTER_STATE_SIZE     272
 #define SPSR_EL1_SLOT       (31 * 8)
 #define ELR_EL1_SLOT        (32 * 8)
 #define TPIDR_EL0_SLOT      (33 * 8)
@@ -33,8 +33,10 @@
 // and enter the C++ exception handler
 //
 .macro save_current_context
-    // Allocate stack space for Trap Frame
-    sub sp, sp, #TRAP_FRAME_SIZE
+    msr SPSel, #0 // Switched to sp_el0 stack, which is the current executing threads stack
+
+    // Allocate stack space for RegisterState
+    sub sp, sp, #REGISTER_STATE_SIZE
 
     stp x0, x1,     [sp, #(0 * 0)]
     stp x2, x3,     [sp, #(2 * 8)]
@@ -60,12 +62,12 @@
     str x0, [sp, #ELR_EL1_SLOT]
     mrs x0, tpidr_el0
     str x0, [sp, #TPIDR_EL0_SLOT]
-    mrs x0, sp_el0
+    // mrs x0, sp_el0
     str x0, [sp, #SP_EL0_SLOT]
 
     // Set up TrapFrame struct on the stack
-    sub sp, sp, #16
     mov x0, sp
+    sub sp, sp, #16
     str x0, [sp, #(1 * 8)]
     str xzr, [sp, #(0 * 0)]
 
@@ -86,7 +88,8 @@
     ldr x0, [sp, #TPIDR_EL0_SLOT]
     msr tpidr_el0, x0
     ldr x0, [sp, #SP_EL0_SLOT]
-    msr sp_el0, x0
+    // This only works when running with SPSel  == 1
+    // msr sp_el0, x0
 
     ldp x0, x1,     [sp, #(0 * 0)]
     ldp x2, x3,     [sp, #(2 * 8)]
@@ -105,7 +108,7 @@
     ldp x28, x29,   [sp, #(28 * 8)]
     ldr x30,        [sp, #(30 * 8)]
 
-    add sp, sp, #TRAP_FRAME_SIZE
+    add sp, sp, #REGISTER_STATE_SIZE
 .endm
 
 .global vector_table_el1
@@ -184,5 +187,11 @@ fiq_current_elsp_el0:
 system_error_current_elsp_el0:
     save_current_context
     bl exception_common
+    restore_previous_context
+    eret
+
+// FIXME: Not sure how to call this
+.global asm_exit_trap
+asm_exit_trap:
     restore_previous_context
     eret

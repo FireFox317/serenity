@@ -25,8 +25,8 @@
 #include <Kernel/UserOrKernelBuffer.h>
 
 // Process
-char const* asm_signal_trampoline = nullptr;
-char const* asm_signal_trampoline_end = nullptr;
+// char const* asm_signal_trampoline = nullptr;
+// char const* asm_signal_trampoline_end = nullptr;
 
 namespace Kernel {
 
@@ -229,7 +229,7 @@ InodeIndex SegmentedProcFSIndex::build_segmented_index_for_sub_directory(Process
 
 ProcFSExposedComponent::ProcFSExposedComponent()
 {
-    TODO_AARCH64();
+    // TODO_AARCH64();
 }
 
 }
@@ -277,6 +277,11 @@ Thread::Blocker::~Blocker()
 }
 
 void Thread::Blocker::begin_blocking(Badge<Thread>)
+{
+    TODO_AARCH64();
+}
+
+auto Thread::Blocker::end_blocking(Badge<Thread>, bool) -> BlockResult
 {
     TODO_AARCH64();
 }

@@ -22,6 +22,7 @@ public:
 
     static UserOrKernelBuffer for_kernel_buffer(u8* kernel_buffer)
     {
+        dbgln("for_kernel_buffer: {}", (FlatPtr)kernel_buffer);
         VERIFY(!kernel_buffer || !Memory::is_user_address(VirtualAddress(kernel_buffer)));
         return UserOrKernelBuffer(kernel_buffer);
     }

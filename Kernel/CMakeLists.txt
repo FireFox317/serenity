@@ -227,6 +227,7 @@ set(KERNEL_SOURCES
     Syscalls/disown.cpp
     Syscalls/dup2.cpp
     Syscalls/emuctl.cpp
+    Syscalls/execve.cpp
     Syscalls/exit.cpp
     Syscalls/fallocate.cpp
     Syscalls/fcntl.cpp
@@ -348,7 +349,6 @@ if ("${SERENITY_ARCH}" STREQUAL "i686" OR "${SERENITY_ARCH}" STREQUAL "x86_64")
         kprintf.cpp
         Panic.cpp
         Syscall.cpp
-        Syscalls/execve.cpp
         Syscalls/fork.cpp
         Syscalls/mmap.cpp
         Syscalls/ptrace.cpp
@@ -679,6 +679,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/kernel.map" DESTINATION res)
 
 if ("${SERENITY_ARCH}" STREQUAL "aarch64")
     embed_resource(Kernel serenity_boot_logo "Arch/aarch64/SerenityLogoRGB.ppm")
+    embed_resource(Kernel smaller_disk_image "../Build/aarch64/_smaller_disk_image")
     add_custom_command(
             TARGET Kernel POST_BUILD
             COMMAND ${CMAKE_OBJCOPY} -O binary Kernel kernel8.img

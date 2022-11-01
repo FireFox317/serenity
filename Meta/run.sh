@@ -260,7 +260,10 @@ fi
 # add -machine vmport=off below to run the machine with ps/2 mouse
 if [ -z "$SERENITY_MACHINE" ]; then
     if [ "$SERENITY_ARCH" = "aarch64" ]; then
-        SERENITY_MACHINE="-M raspi3b -serial stdio"
+        SERENITY_MACHINE="
+        -M raspi3b
+        -serial stdio
+        "
     else
         SERENITY_MACHINE="
         $SERENITY_MACHINE_FORCE_VERSION_SEVEN_ZERO

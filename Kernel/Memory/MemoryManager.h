@@ -309,7 +309,8 @@ private:
 
 inline bool is_user_address(VirtualAddress vaddr)
 {
-    return vaddr.get() < USER_RANGE_CEILING;
+    (void)vaddr;
+    return false;
 }
 
 inline bool is_user_range(VirtualAddress vaddr, size_t size)

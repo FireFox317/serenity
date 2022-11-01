@@ -10,8 +10,11 @@
 #include <Kernel/Interrupts/GenericInterruptHandler.h>
 #include <Kernel/Interrupts/SharedIRQHandler.h>
 #include <Kernel/Interrupts/UnhandledInterruptHandler.h>
+#include <Kernel/Random.h>
 
 namespace Kernel {
+
+static EntropySource s_entropy_source_interrupts { EntropySource::Static::Interrupts };
 
 static Array<GenericInterruptHandler*, 64> s_interrupt_handlers;
 
@@ -31,7 +34,7 @@ extern "C" void handle_interrupt(TrapFrame& trap_frame)
                 pending_interrupts >>= 1;
                 continue;
             }
-
+            s_entropy_source_interrupts.add_random_event(irq);
             auto* handler = s_interrupt_handlers[irq];
             VERIFY(handler);
             handler->increment_invoking_counter();

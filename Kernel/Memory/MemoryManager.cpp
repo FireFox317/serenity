@@ -244,6 +244,9 @@ bool MemoryManager::is_allowed_to_read_physical_memory_for_userspace(PhysicalAdd
     });
 }
 
+extern "C" const u32 smaller_disk_image_start;
+extern "C" const u32 smaller_disk_image_size;
+
 UNMAP_AFTER_INIT void MemoryManager::parse_memory_map()
 {
     // Register used memory regions that we know of.
@@ -252,7 +255,10 @@ UNMAP_AFTER_INIT void MemoryManager::parse_memory_map()
 #if ARCH(I386) || ARCH(X86_64)
         global_data.used_memory_ranges.append(UsedMemoryRange { UsedMemoryRangeType::LowMemory, PhysicalAddress(0x00000000), PhysicalAddress(1 * MiB) });
 #endif
+        dbgln("kernel_image start: {}, end: {}", (FlatPtr)start_of_kernel_image, (FlatPtr)end_of_kernel_image);
         global_data.used_memory_ranges.append(UsedMemoryRange { UsedMemoryRangeType::Kernel, PhysicalAddress(virtual_to_low_physical((FlatPtr)start_of_kernel_image)), PhysicalAddress(page_round_up(virtual_to_low_physical((FlatPtr)end_of_kernel_image)).release_value_but_fixme_should_propagate_errors()) });
+        // global_data.used_memory_ranges.append(UsedMemoryRange { UsedMemoryRangeType::Kernel, PhysicalAddress(virtual_to_low_physical((FlatPtr)0)), PhysicalAddress(page_round_up(virtual_to_low_physical((FlatPtr)start_of_kernel_image)).release_value_but_fixme_should_propagate_errors()) });
+        global_data.used_memory_ranges.append(UsedMemoryRange { UsedMemoryRangeType::BootModule, PhysicalAddress((FlatPtr)&smaller_disk_image_start), PhysicalAddress((FlatPtr)&smaller_disk_image_start + smaller_disk_image_size) });
 
         if (multiboot_flags & 0x4) {
             auto* bootmods_start = multiboot_copy_boot_modules_array;
@@ -449,6 +455,7 @@ UNMAP_AFTER_INIT void MemoryManager::initialize_physical_pages()
             // Carve out the whole page directory covering the kernel image to make MemoryManager::initialize_physical_pages() happy
             FlatPtr start_of_range = ((FlatPtr)start_of_kernel_image & ~(FlatPtr)0x1fffff);
             FlatPtr end_of_range = ((FlatPtr)end_of_kernel_image & ~(FlatPtr)0x1fffff) + 0x200000;
+            // dbgln("start: {}, end: {}", start_of_range, end_of_range);
             MUST(global_data.region_tree.place_specifically(*MUST(Region::create_unbacked()).leak_ptr(), VirtualRange { VirtualAddress(start_of_range), end_of_range - start_of_range }));
         }
 
@@ -916,6 +923,7 @@ RefPtr<PhysicalPage> MemoryManager::find_free_physical_page(bool committed)
             global_data.system_memory_info.physical_pages_uncommitted--;
         }
         for (auto& region : global_data.physical_regions) {
+            // dbgln("region: {} {}", region.lower(), region.upper());
             page = region.take_free_page();
             if (!page.is_null()) {
                 ++global_data.system_memory_info.physical_pages_used;

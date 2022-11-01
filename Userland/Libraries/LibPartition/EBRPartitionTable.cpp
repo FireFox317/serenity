@@ -58,17 +58,26 @@ EBRPartitionTable::EBRPartitionTable(NonnullRefPtr<Core::File> device)
     if (!is_header_valid())
         return;
     m_valid = true;
+    dbgln("header is valid!");
 
     VERIFY(partitions_count() == 0);
 
+    dbgln("hmmasdf");
     auto& header = this->header();
+    dbgln("header addrress: {:p}", &header);
+
     for (size_t index = 0; index < 4; index++) {
+        dbgln("c");
+
         auto& entry = header.entry[index];
         // Start enumerating all logical partitions
         if (entry.type == 0xf) {
+            dbgln("b");
+
             auto checked_ebr = MBRPartitionTable::try_to_initialize(device, entry.offset);
             if (!checked_ebr)
                 continue;
+            dbgln("A");
             // It's quite unlikely to see that amount of partitions, so stop at 128 partitions.
             search_extended_partition(device, *checked_ebr, entry.offset, 128);
             continue;
@@ -77,6 +86,7 @@ EBRPartitionTable::EBRPartitionTable(NonnullRefPtr<Core::File> device)
         if (entry.offset == 0x00) {
             continue;
         }
+        dbgln("hmmm");
         MUST(m_partitions.try_empend(entry.offset, (entry.offset + entry.length) - 1, entry.type));
     }
 }

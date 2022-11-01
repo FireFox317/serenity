@@ -25,10 +25,10 @@ bool Process::has_tracee_thread(ProcessID)
     TODO_AARCH64();
 }
 
-ErrorOr<void> Process::exec(NonnullOwnPtr<KString>, NonnullOwnPtrVector<KString>, NonnullOwnPtrVector<KString>, Thread*&, u32&, int)
-{
-    TODO_AARCH64();
-}
+// ErrorOr<void> Process::exec(NonnullOwnPtr<KString>, NonnullOwnPtrVector<KString>, NonnullOwnPtrVector<KString>, Thread*&, u32&, int)
+// {
+//     TODO_AARCH64();
+// }
 
 }
 
@@ -56,10 +56,10 @@ void dbgputstr(StringView)
     TODO_AARCH64();
 }
 
-void dbgputstr(char const*, size_t)
-{
-    TODO_AARCH64();
-}
+// void dbgputstr(char const*, size_t)
+// {
+//     TODO_AARCH64();
+// }
 
 void dbgputchar(char)
 {

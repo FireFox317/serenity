@@ -435,7 +435,7 @@ NonnullLockRefPtr<FileSystem> StorageManagement::root_filesystem() const
     return file_system;
 }
 
-UNMAP_AFTER_INIT void StorageManagement::initialize(StringView root_device, bool force_pio, bool poll)
+UNMAP_AFTER_INIT void StorageManagement::initialize(StringView root_device, bool, bool)
 {
     VERIFY(s_storage_device_minor_number == 0);
     m_boot_argument = root_device;
@@ -446,13 +446,13 @@ UNMAP_AFTER_INIT void StorageManagement::initialize(StringView root_device, bool
         m_controllers.append(ISAIDEController::initialize());
 #endif
     } else {
-        enumerate_pci_controllers(force_pio, poll);
+        // enumerate_pci_controllers(force_pio, poll);
     }
     // Note: Whether PCI bus is present on the system or not, always try to attach
     // a given ramdisk.
     m_controllers.append(RamdiskController::initialize());
     enumerate_storage_devices();
-    enumerate_disk_partitions();
+    // enumerate_disk_partitions();
 
     determine_boot_device();
     if (m_boot_block_device.is_null()) {

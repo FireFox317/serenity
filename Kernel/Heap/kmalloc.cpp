@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define KMALLOC_DEBUG 1
+
 #include <AK/Assertions.h>
 #include <AK/Types.h>
 #include <Kernel/Arch/PageDirectory.h>

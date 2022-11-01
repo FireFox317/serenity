@@ -109,8 +109,10 @@ public:
 
     u64 raw() const { return m_raw; }
 
+    // Attribute fields in stage 1 VMSAv8-64 Block and Page descriptors - page D5-2595
     enum Flags {
         Present = 1 << 0,
+        Access = 1 << 10,
     };
 
     bool is_present() const { return (raw() & Present) == Present; }

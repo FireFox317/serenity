@@ -78,6 +78,11 @@ SECTIONS
     page_tables_phys_end = .;
 
     end_of_kernel_image = .;
+
+    smaller_disk_image : AT (ADDR(smaller_disk_image))
+    {
+        *(smaller_disk_image)
+    }
 }
 
 size_of_bss_divided_by_8 = (end_of_bss - start_of_bss + 7) / 8;

@@ -604,4 +604,9 @@ void exit_kernel_thread(void)
     Thread::current()->exit();
 }
 
+StringView Processor::platform_string()
+{
+    return "aarch64"sv;
+}
+
 }

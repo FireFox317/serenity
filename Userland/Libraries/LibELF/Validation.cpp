@@ -62,9 +62,14 @@ bool validate_elf_header(ElfW(Ehdr) const& elf_header, size_t file_size, bool ve
 #if ARCH(I386)
     auto expected_machine = EM_386;
     auto expected_machine_name = "i386";
-#else
+#elif ARCH(X86_64)
     auto expected_machine = EM_X86_64;
     auto expected_machine_name = "x86-64";
+#elif ARCH(AARCH64)
+    auto expected_machine = EM_AARCH64;
+    auto expected_machine_name = "aarch64";
+#else
+#    error Unknown architecture
 #endif
 
     if (expected_machine != elf_header.e_machine) {

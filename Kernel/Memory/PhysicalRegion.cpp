@@ -109,6 +109,7 @@ RefPtr<PhysicalPage> PhysicalRegion::take_free_page()
         return nullptr;
 
     auto& zone = *m_usable_zones.first();
+    // zone.dump();
     auto page = zone.allocate_block(0);
     VERIFY(page.has_value());
 

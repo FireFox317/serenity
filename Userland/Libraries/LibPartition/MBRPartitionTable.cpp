@@ -115,6 +115,7 @@ MBRPartitionTable::~MBRPartitionTable() = default;
 
 MBRPartitionTable::Header const& MBRPartitionTable::header() const
 {
+    dbgln("{}", m_cached_header.bytes());
     return *(MBRPartitionTable::Header const*)m_cached_header.data();
 }
 

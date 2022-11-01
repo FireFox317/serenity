@@ -24,11 +24,13 @@
 #include <Kernel/Arch/aarch64/TrapFrame.h>
 #include <Kernel/CommandLine.h>
 #include <Kernel/Devices/DeviceManagement.h>
+#include <Kernel/FileSystem/VirtualFileSystem.h>
 #include <Kernel/Graphics/Console/BootFramebufferConsole.h>
 #include <Kernel/KSyms.h>
 #include <Kernel/Memory/MemoryManager.h>
 #include <Kernel/Panic.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/Storage/StorageManagement.h>
 
 extern "C" void exception_common(Kernel::TrapFrame const* const trap_frame);
 extern "C" void exception_common(Kernel::TrapFrame const* const trap_frame)
@@ -37,6 +39,11 @@ extern "C" void exception_common(Kernel::TrapFrame const* const trap_frame)
     if (esr_el1.EC == 0b100101 || esr_el1.EC == 0b100100) {
         // Data Abort (MMU fault); 0b100101 -> no EL change, 0b100100 -> EL change
         dbgln("Whoops page fault");
+
+        u64 far_el1;
+        asm("mrs  %[value], far_el1"
+            : [value] "=r"(far_el1));
+        dbgln("faulting address: 0x{:x}", far_el1);
     }
     constexpr bool print_stack_frame = true;
 
@@ -101,13 +108,33 @@ void init_stage2(void*)
 {
     Process::register_new(Process::current());
 
-    // LockRefPtr<Thread> thread;
-    // auto userspace_init = kernel_command_line().userspace_init();
-    // auto init_args = kernel_command_line().userspace_init_args();
+    // dbgln("smaller_disk_start: {}", (PhysicalAddress((PhysicalPtr) reinterpret_cast<u8 const*>(&smaller_disk_image_start))));
+    // size_t length = Memory::page_round_up(smaller_disk_image_size).release_value_but_fixme_should_propagate_errors();
+    // auto region_or_error = MM.allocate_kernel_region(0x10000000, "Ramdisk"sv, Memory::Region::Access::ReadWrite);
+    // // m_devices.append(RamdiskDevice::create(*this, region_or_error.release_value(), 6, count));
+    // dbgln("hoi: {}", region_or_error.value());
+    // (void)region_or_error;
 
-    // auto init_or_error = Process::try_create_user_process(thread, userspace_init, UserID(0), GroupID(0), move(init_args), {}, nullptr);
-    // if (init_or_error.is_error())
-    //     PANIC("init_stage2: Error spawning init process: {}", init_or_error.error());
+    DeviceManagement::initialize();
+    SysFSComponentRegistry::initialize();
+    DeviceManagement::the().attach_null_device(*NullDevice::must_initialize());
+    DeviceManagement::the().attach_console_device(*ConsoleDevice::must_create());
+    DeviceManagement::the().attach_device_control_device(*DeviceControlDevice::must_create());
+
+    VirtualFileSystem::initialize();
+
+    StorageManagement::the().initialize(kernel_command_line().root_device(), kernel_command_line().is_force_pio(), kernel_command_line().is_nvme_polling_enabled());
+    if (VirtualFileSystem::the().mount_root(StorageManagement::the().root_filesystem()).is_error()) {
+        PANIC("VirtualFileSystem::mount_root failed");
+    }
+
+    LockRefPtr<Thread> thread;
+    auto userspace_init = kernel_command_line().userspace_init();
+    auto init_args = kernel_command_line().userspace_init_args();
+
+    auto init_or_error = Process::try_create_user_process(thread, userspace_init, UserID(0), GroupID(0), move(init_args), {}, nullptr);
+    if (init_or_error.is_error())
+        PANIC("init_stage2: Error spawning init process: {}", init_or_error.error());
 
     // for (int i = 0; i < 100000; i++) {
     //     dmesgln("         Hello from init_stage2!!! {}", i);

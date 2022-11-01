@@ -33,7 +33,7 @@ template<typename T, typename Container = RawPtr<T>>
 using SubstitutedIntrusiveListNode = IntrusiveListNode<T, typename Detail::SubstituteIntrusiveContainerType<T, Container>::Type>;
 
 template<typename T, typename Container>
-class IntrusiveListStorage {
+class alignas(16) IntrusiveListStorage {
 private:
     friend class IntrusiveListNode<T, Container>;
 
@@ -158,7 +158,7 @@ private:
 };
 
 template<typename T, typename Container>
-class IntrusiveListNode {
+class alignas(16) IntrusiveListNode {
 public:
     ~IntrusiveListNode();
     void remove();

@@ -68,7 +68,7 @@ public:
     }
     ALWAYS_INLINE static void wait_check()
     {
-        TODO_AARCH64();
+        // TODO_AARCH64();
     }
 
     ALWAYS_INLINE u8 physical_address_bit_width() const
@@ -134,7 +134,7 @@ public:
 
     ALWAYS_INLINE static u64 read_cpu_counter()
     {
-        TODO_AARCH64();
+        // TODO_AARCH64();
         return 0;
     }
 
@@ -260,6 +260,8 @@ public:
 
     void enter_trap(TrapFrame& trap, bool raise_irq);
     void exit_trap(TrapFrame& trap);
+
+    static StringView platform_string();
 
 private:
     Thread* m_current_thread;

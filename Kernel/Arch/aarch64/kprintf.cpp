@@ -64,3 +64,26 @@ void kernelearlyputstr(char const* characters, size_t length)
     for (size_t i = 0; i < length; ++i)
         console_out(characters[i]);
 }
+
+void dbgputstr(char const* characters, size_t length)
+{
+    if (!characters)
+        return;
+
+    auto& uart = Kernel::RPi::UART::the();
+    uart.print_str(characters, length);
+
+    for (size_t i = 0; i < length; ++i)
+        console_out(characters[i]);
+}
+
+void dbgputstr(StringView view)
+{
+    dbgputstr(view.characters_without_null_termination(), view.length());
+}
+
+void dbgputchar(char ch)
+{
+    auto& uart = Kernel::RPi::UART::the();
+    uart.send(ch);
+}

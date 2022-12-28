@@ -192,6 +192,9 @@ extern "C" [[noreturn]] void init()
     ProcFSComponentRegistry::initialize();
     JailManagement::the();
 
+    auto* data = kmalloc(1024 * 1024 * 1024);
+    memset(data, 0xbb, 1024 * 1024 * 1024);
+
     Process::initialize();
     Scheduler::initialize();
 

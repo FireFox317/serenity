@@ -160,6 +160,7 @@ system_error_current_elsp_elx:
     eret
 
 synchronous_current_elsp_el0:
+    msr SPSel, #0
     save_current_context
     bl exception_common
     restore_previous_context

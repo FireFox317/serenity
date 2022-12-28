@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define KMALLOC_DEBUG 1
+
 #include <AK/Assertions.h>
 #include <AK/Types.h>
 #include <Kernel/Arch/PageDirectory.h>
@@ -320,13 +322,13 @@ struct KmallocGlobalData {
         dbgln_if(KMALLOC_DEBUG, "Unable to allocate {}, expanding kmalloc heap", allocation_request);
 
         if (!expansion_data->virtual_range.contains(new_subheap_base, new_subheap_size)) {
-            dbgln_if(KMALLOC_DEBUG, "Out of address space when expanding kmalloc heap");
+            dbgln_if(KMALLOC_DEBUG, "Out of address space when expanding kmalloc heap (virtual_range)");
             return false;
         }
 
         auto physical_pages_or_error = MM.commit_physical_pages(new_subheap_size / PAGE_SIZE);
         if (physical_pages_or_error.is_error()) {
-            dbgln_if(KMALLOC_DEBUG, "Out of address space when expanding kmalloc heap");
+            dbgln_if(KMALLOC_DEBUG, "Out of address space when expanding kmalloc heap (commit_phsycial_pages)");
             return false;
         }
         auto physical_pages = physical_pages_or_error.release_value();

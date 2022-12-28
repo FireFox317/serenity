@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define PAGE_FAULT_DEBUG 1
+
 #include <AK/Assertions.h>
 #include <AK/Memory.h>
 #include <AK/NonnullRefPtrVector.h>
@@ -664,8 +666,8 @@ UNMAP_AFTER_INIT void MemoryManager::initialize(u32 cpu)
 
 Region* MemoryManager::kernel_region_from_vaddr(VirtualAddress address)
 {
-    if (is_user_address(address))
-        return nullptr;
+    // if (is_user_address(address))
+    //     return nullptr;
 
     return MM.m_global_data.with([&](auto& global_data) {
         return global_data.region_tree.find_region_containing(address);

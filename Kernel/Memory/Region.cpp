@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define PAGE_FAULT_DEBUG 1
+
 #include <AK/Memory.h>
 #include <AK/StringView.h>
 #include <Kernel/Arch/PageDirectory.h>

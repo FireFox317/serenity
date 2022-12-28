@@ -19,7 +19,7 @@ Framebuffer::Framebuffer()
     m_depth = 32;
     m_initialized = false;
 
-    struct __attribute__((aligned(16))) {
+    struct [[gnu::packed]] {
         Mailbox::MessageHeader header;
         FramebufferSetPhysicalSizeMboxMessage set_physical_size;
         FramebufferSetVirtualSizeMboxMessage set_virtual_size;
@@ -29,7 +29,7 @@ Framebuffer::Framebuffer()
         FramebufferAllocateBufferMboxMessage allocate_buffer;
         FramebufferGetPithMboxMessage get_pitch;
         Mailbox::MessageTail tail;
-    } message_queue;
+    } message_queue __attribute((aligned(16)));
 
     message_queue.header.set_queue_size(sizeof(message_queue));
     message_queue.set_physical_size.width = m_width;

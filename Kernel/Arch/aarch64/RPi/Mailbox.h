@@ -15,7 +15,7 @@ namespace Kernel::RPi {
 class Mailbox {
 public:
     // Base class for Mailbox messages. Implemented in subsystems that use Mailbox.
-    class Message {
+    class [[gnu::packed]] Message {
     protected:
         Message(u32 tag, u32 arguments_size);
 
@@ -26,7 +26,7 @@ public:
     };
 
     // Must be at the beginning of every command message queue
-    class MessageHeader {
+    class [[gnu::packed]] MessageHeader {
     public:
         MessageHeader();
 
@@ -40,7 +40,7 @@ public:
     };
 
     // Must be at the end of every command message queue
-    class MessageTail {
+    class [[gnu::packed]] MessageTail {
     private:
         u32 m_empty_tag = 0;
     };

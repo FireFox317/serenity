@@ -211,7 +211,7 @@ extern "C" [[noreturn]] void init()
     VERIFY_NOT_REACHED();
 }
 
-class QueryFirmwareVersionMboxMessage : RPi::Mailbox::Message {
+class [[gnu::packed]] QueryFirmwareVersionMboxMessage : RPi::Mailbox::Message {
 public:
     u32 version;
 
@@ -224,11 +224,11 @@ public:
 
 static u32 query_firmware_version()
 {
-    struct __attribute__((aligned(16))) {
+    struct [[gnu::packed]] {
         RPi::Mailbox::MessageHeader header;
         QueryFirmwareVersionMboxMessage query_firmware_version;
         RPi::Mailbox::MessageTail tail;
-    } message_queue;
+    } message_queue __attribute((aligned(16)));
 
     if (!RPi::Mailbox::the().send_queue(&message_queue, sizeof(message_queue))) {
         return 0xffff'ffff;

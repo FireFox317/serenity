@@ -10,7 +10,7 @@
 
 namespace Kernel::RPi {
 
-class FramebufferSetPhysicalSizeMboxMessage : public Mailbox::Message {
+class [[gnu::packed]] FramebufferSetPhysicalSizeMboxMessage : public Mailbox::Message {
 public:
     u32 width;
     u32 height;
@@ -24,7 +24,7 @@ public:
 };
 static_assert(sizeof(FramebufferSetPhysicalSizeMboxMessage) == 20);
 
-class FramebufferSetVirtualSizeMboxMessage : public Mailbox::Message {
+class [[gnu::packed]] FramebufferSetVirtualSizeMboxMessage : public Mailbox::Message {
 public:
     u32 width;
     u32 height;
@@ -38,7 +38,7 @@ public:
 };
 static_assert(sizeof(FramebufferSetVirtualSizeMboxMessage) == 20);
 
-class FramebufferSetVirtualOffsetMboxMessage : public Mailbox::Message {
+class [[gnu::packed]] FramebufferSetVirtualOffsetMboxMessage : public Mailbox::Message {
 public:
     u32 x;
     u32 y;
@@ -52,7 +52,7 @@ public:
 };
 static_assert(sizeof(FramebufferSetVirtualOffsetMboxMessage) == 20);
 
-class FramebufferSetDepthMboxMessage : public Mailbox::Message {
+class [[gnu::packed]] FramebufferSetDepthMboxMessage : public Mailbox::Message {
 public:
     u32 depth_bits;
 
@@ -64,7 +64,7 @@ public:
 };
 static_assert(sizeof(FramebufferSetDepthMboxMessage) == 16);
 
-class FramebufferSetPixelOrderMboxMessage : public Mailbox::Message {
+class [[gnu::packed]] FramebufferSetPixelOrderMboxMessage : public Mailbox::Message {
 public:
     enum PixelOrder : u32 {
         BGR = 0,
@@ -81,7 +81,7 @@ public:
 };
 static_assert(sizeof(FramebufferSetPixelOrderMboxMessage) == 16);
 
-class FramebufferAllocateBufferMboxMessage : public Mailbox::Message {
+class [[gnu::packed]] FramebufferAllocateBufferMboxMessage : public Mailbox::Message {
 public:
     union {
         u32 alignment;
@@ -98,7 +98,7 @@ public:
 };
 static_assert(sizeof(FramebufferAllocateBufferMboxMessage) == 20);
 
-class FramebufferGetPithMboxMessage : public Mailbox::Message {
+class [[gnu::packed]] FramebufferGetPithMboxMessage : public Mailbox::Message {
 public:
     u32 pitch;
 

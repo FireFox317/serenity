@@ -116,7 +116,7 @@ void Timer::set_compare(TimerID id, u32 compare)
     m_registers->compare[to_underlying(id)] = compare;
 }
 
-class SetClockRateMboxMessage : Mailbox::Message {
+class [[gnu::packed]] SetClockRateMboxMessage : Mailbox::Message {
 public:
     u32 clock_id;
     u32 rate_hz;
@@ -133,11 +133,11 @@ public:
 
 u32 Timer::set_clock_rate(ClockID clock_id, u32 rate_hz, bool skip_setting_turbo)
 {
-    struct __attribute__((aligned(16))) {
+    struct [[gnu::packed]] {
         Mailbox::MessageHeader header;
         SetClockRateMboxMessage set_clock_rate;
         Mailbox::MessageTail tail;
-    } message_queue;
+    } message_queue __attribute((aligned(16)));
 
     message_queue.set_clock_rate.clock_id = static_cast<u32>(clock_id);
     message_queue.set_clock_rate.rate_hz = rate_hz;

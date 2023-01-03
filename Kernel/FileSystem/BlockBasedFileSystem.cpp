@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define BBFS_DEBUG 1
+
 #include <AK/IntrusiveList.h>
 #include <Kernel/Debug.h>
 #include <Kernel/FileSystem/BlockBasedFileSystem.h>
@@ -228,6 +230,7 @@ ErrorOr<void> BlockBasedFileSystem::read_block(BlockIndex index, UserOrKernelBuf
 
     return m_cache.with_exclusive([&](auto& cache) -> ErrorOr<void> {
         if (!allow_cache) {
+            dbgln("here?1");
             const_cast<BlockBasedFileSystem*>(this)->flush_specific_block_if_needed(index);
             u64 base_offset = index.value() * block_size() + offset;
             auto nread = TRY(file_description().read(*buffer, base_offset, count));
@@ -235,16 +238,23 @@ ErrorOr<void> BlockBasedFileSystem::read_block(BlockIndex index, UserOrKernelBuf
             return {};
         }
 
+        dbgln("hi");
         auto* entry = TRY(cache->ensure(index));
         if (!entry->has_data) {
             auto base_offset = index.value() * block_size();
             auto entry_data_buffer = UserOrKernelBuffer::for_kernel_buffer(entry->data);
+            dbgln("doei1");
             auto nread = TRY(file_description().read(entry_data_buffer, base_offset, block_size()));
+            dbgln("doei2");
             VERIFY(nread == block_size());
             entry->has_data = true;
         }
-        if (buffer)
+        if (buffer) {
+            dbgln("here?2");
+
             TRY(buffer->write(entry->data + offset, count));
+            dbgln("writing failed?");
+        }
         return {};
     });
 }

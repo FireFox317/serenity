@@ -56,8 +56,13 @@ bool validate_elf_header(ElfW(Ehdr) const& elf_header, size_t file_size, bool ve
         return false;
     }
 
-    auto expected_machine = EM_X86_64;
-    auto expected_machine_name = "x86-64";
+    // auto expected_machine = EM_X86_64;
+    // auto expected_machine_name = "x86-64";
+
+    auto expected_machine = EM_AARCH64;
+    auto expected_machine_name = "aarch64";
+
+    
 
     if (expected_machine != elf_header.e_machine) {
         if (verbose)

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define CONTEXT_SWITCH_DEBUG 1
+
 #include <AK/Format.h>
 #include <AK/Vector.h>
 
@@ -29,15 +31,15 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread) __a
 
 Processor* g_current_processor;
 
-void Processor::initialize(u32 cpu)
+void Processor::initialize(u32)
 {
     VERIFY(g_current_processor == nullptr);
 
-    auto current_exception_level = static_cast<u64>(Aarch64::Asm::get_current_exception_level());
-    dbgln("CPU{} started in: EL{}", cpu, current_exception_level);
+    // auto current_exception_level = static_cast<u64>(Aarch64::Asm::get_current_exception_level());
+    // dbgln("CPU{} started in: EL{}", cpu, current_exception_level);
 
-    dbgln("Drop CPU{} to EL1", cpu);
-    drop_to_exception_level_1();
+    // dbgln("Drop CPU{} to EL1", cpu);
+    // drop_to_exception_level_1();
 
     // Load EL1 vector table
     Aarch64::Asm::el1_vector_table_install(&vector_table_el1);
@@ -407,6 +409,13 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread)
     VERIFY(to_thread->state() == Thread::State::Running);
 
     Processor::set_current_thread(*to_thread);
+
+    auto& from_regs = from_thread->regs();
+    auto& to_regs = to_thread->regs();
+    dbgln("Setting ttbr0: from_regs: {:x}, to_regs:{:x}", from_regs.ttbr0_el1, to_regs.ttbr0_el1);
+    if (from_regs.ttbr0_el1 != to_regs.ttbr0_el1)
+        Aarch64::Asm::set_ttbr0_el1(to_regs.ttbr0_el1);
+    dbgln("whoops ttbr0");
 
     to_thread->set_cpu(Processor::current().id());
 

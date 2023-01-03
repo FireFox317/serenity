@@ -14,17 +14,18 @@
 
 namespace Kernel {
 
-ProcessID g_init_pid { 0 };
+// ProcessID g_init_pid { 0 };
 
 bool Process::has_tracee_thread(ProcessID)
 {
-    TODO_AARCH64();
+    return false;
+    // TODO_AARCH64();
 }
 
-ErrorOr<void> Process::exec(NonnullOwnPtr<KString>, NonnullOwnPtrVector<KString>, NonnullOwnPtrVector<KString>, Thread*&, u32&, int)
-{
-    TODO_AARCH64();
-}
+// ErrorOr<void> Process::exec(NonnullOwnPtr<KString>, NonnullOwnPtrVector<KString>, NonnullOwnPtrVector<KString>, Thread*&, u32&, int)
+// {
+//     TODO_AARCH64();
+// }
 
 }
 
@@ -42,7 +43,7 @@ void microseconds_delay(u32)
 namespace Kernel::PCI {
 
 bool g_pci_access_io_probe_failed { false };
-bool g_pci_access_is_disabled_from_commandline { false };
+bool g_pci_access_is_disabled_from_commandline { true };
 
 }
 
@@ -57,9 +58,7 @@ READONLY_AFTER_INIT PhysicalAddress end_of_prekernel_image;
 READONLY_AFTER_INIT size_t physical_to_virtual_offset;
 // READONLY_AFTER_INIT FlatPtr kernel_mapping_base;
 READONLY_AFTER_INIT FlatPtr kernel_load_base;
-#if ARCH(X86_64)
 READONLY_AFTER_INIT PhysicalAddress boot_pml4t;
-#endif
 READONLY_AFTER_INIT PhysicalAddress boot_pdpt;
 READONLY_AFTER_INIT PhysicalAddress boot_pd0;
 READONLY_AFTER_INIT PhysicalAddress boot_pd_kernel;

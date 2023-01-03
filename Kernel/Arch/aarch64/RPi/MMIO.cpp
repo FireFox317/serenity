@@ -10,11 +10,11 @@
 namespace Kernel::RPi {
 
 MMIO::MMIO()
-    : m_base_address(0xFE00'0000)
+    : m_base_address(0x2000000000 + 0xFE00'0000)
 {
     MainIdRegister id;
     if (id.part_num() <= MainIdRegister::RaspberryPi3)
-        m_base_address = 0x3F00'0000;
+        m_base_address = 0x2000000000 + 0x3F00'0000;
 }
 
 MMIO& MMIO::the()

@@ -30,10 +30,9 @@ ErrorOr<NonnullLockRefPtr<PageDirectory>> PageDirectory::try_create_for_userspac
 {
     auto directory = TRY(adopt_nonnull_lock_ref_or_enomem(new (nothrow) PageDirectory));
 
-#if ARCH(X86_64)
-    directory->m_pml4t = TRY(MM.allocate_physical_page());
-#endif
+    dbgln("making new pagedirectory for userspace");
 
+    directory->m_pml4t = TRY(MM.allocate_physical_page());
     directory->m_directory_table = TRY(MM.allocate_physical_page());
     auto kernel_pd_index = (kernel_mapping_base >> 30) & 0x1ffu;
     for (size_t i = 0; i < kernel_pd_index; i++) {
@@ -43,21 +42,19 @@ ErrorOr<NonnullLockRefPtr<PageDirectory>> PageDirectory::try_create_for_userspac
     // Share the top 1 GiB of kernel-only mappings (>=kernel_mapping_base)
     directory->m_directory_pages[kernel_pd_index] = MM.kernel_page_directory().m_directory_pages[kernel_pd_index];
 
-#if ARCH(X86_64)
     {
         InterruptDisabler disabler;
         auto& table = *(PageDirectoryPointerTable*)MM.quickmap_page(*directory->m_pml4t);
-        table.raw[0] = (FlatPtr)directory->m_directory_table->paddr().as_ptr() | 7;
+        table.raw[0] = (FlatPtr)directory->m_directory_table->paddr().as_ptr() | 3;
         MM.unquickmap_page();
     }
-#endif
 
     {
         InterruptDisabler disabler;
         auto& table = *(PageDirectoryPointerTable*)MM.quickmap_page(*directory->m_directory_table);
         for (size_t i = 0; i < sizeof(m_directory_pages) / sizeof(m_directory_pages[0]); i++) {
             if (directory->m_directory_pages[i]) {
-                table.raw[i] = (FlatPtr)directory->m_directory_pages[i]->paddr().as_ptr() | 7;
+                table.raw[i] = (FlatPtr)directory->m_directory_pages[i]->paddr().as_ptr() | 3;
             }
         }
 
@@ -98,16 +95,47 @@ PageDirectory::PageDirectory() = default;
 UNMAP_AFTER_INIT void PageDirectory::allocate_kernel_directory()
 {
     // Adopt the page tables already set up by boot.S
-#if ARCH(X86_64)
     dmesgln("MM: boot_pml4t @ {}", boot_pml4t);
     m_pml4t = PhysicalPage::create(boot_pml4t, MayReturnToFreeList::No);
-#endif
     dmesgln("MM: boot_pdpt @ {}", boot_pdpt);
     dmesgln("MM: boot_pd0 @ {}", boot_pd0);
     dmesgln("MM: boot_pd_kernel @ {}", boot_pd_kernel);
     m_directory_table = PhysicalPage::create(boot_pdpt, MayReturnToFreeList::No);
     m_directory_pages[0] = PhysicalPage::create(boot_pd0, MayReturnToFreeList::No);
     m_directory_pages[(kernel_mapping_base >> 30) & 0x1ff] = PhysicalPage::create(boot_pd_kernel, MayReturnToFreeList::No);
+
+    // dbgln("Dump root (pml4t) page table @ {}:", (*m_pml4t).paddr());
+    // {
+    //     InterruptDisabler disabler;
+    //     auto& table = *(PageDirectoryPointerTable*)MM.quickmap_page(*m_pml4t);
+    //     for (int i = 0; i < 512; ++i) {
+    //         dbgln("0x{:x}", table.raw[i]);
+    //     }
+    //     MM.unquickmap_page();
+    // }
+
+    // dbgln("Dump page (m_directory_table) table @ {}:", (*m_directory_table).paddr());
+    // {
+    //     InterruptDisabler disabler;
+    //     auto& table = *(PageDirectoryPointerTable*)MM.quickmap_page(*m_directory_table);
+    //     for (int i = 0; i < 512; ++i) {
+    //         dbgln("0x{:x}", table.raw[i]);
+    //     }
+    //     MM.unquickmap_page();
+    // }
+
+    // dbgln("Dump page (m_directory_table(kernel_mapping_base)) table @ {}:", (*m_directory_pages[(kernel_mapping_base >> 30) & 0x1ff]).paddr());
+    // {
+    //     InterruptDisabler disabler;
+    //     auto& table = *(PageDirectoryPointerTable*)MM.quickmap_page(*m_directory_pages[(kernel_mapping_base >> 30) & 0x1ff]);
+    //     for (int i = 0; i < 512; ++i) {
+    //         dbgln("0x{:x}", table.raw[i]);
+    //     }
+    //     MM.unquickmap_page();
+    // }
+
+
+    
 }
 
 PageDirectory::~PageDirectory()

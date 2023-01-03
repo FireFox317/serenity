@@ -75,9 +75,7 @@ bool MemoryManager::is_initialized()
 static UNMAP_AFTER_INIT VirtualRange kernel_virtual_range()
 {
 #if ARCH(AARCH64)
-    // NOTE: We currently identity map the kernel image for aarch64, so the kernel virtual range
-    //       is the complete memory range.
-    return VirtualRange { VirtualAddress((FlatPtr)0), 0x3F000000 };
+    return VirtualRange { VirtualAddress(kernel_mapping_base), KERNEL_PD_END - kernel_mapping_base };
 #else
     size_t kernel_range_start = kernel_mapping_base + 2 * MiB; // The first 2 MiB are used for mapping the pre-kernel
     return VirtualRange { VirtualAddress(kernel_range_start), KERNEL_PD_END - kernel_range_start };
@@ -486,7 +484,9 @@ UNMAP_AFTER_INIT void MemoryManager::initialize_physical_pages()
             auto virtual_page_base_for_this_pt = virtual_page_array_current_page;
             auto pt_paddr = page_tables_base.offset(pt_index * PAGE_SIZE);
             auto* pt = reinterpret_cast<PageTableEntry*>(quickmap_page(pt_paddr));
+            dbgln("pt: {:p}", pt);
             __builtin_memset(pt, 0, PAGE_SIZE);
+            dbgln("quickmapping works!");
             for (size_t pte_index = 0; pte_index < PAGE_SIZE / sizeof(PageTableEntry); pte_index++) {
                 auto& pte = pt[pte_index];
                 pte.set_physical_page_base(physical_page_array_current_page);
@@ -666,8 +666,8 @@ UNMAP_AFTER_INIT void MemoryManager::initialize(u32 cpu)
 
 Region* MemoryManager::kernel_region_from_vaddr(VirtualAddress address)
 {
-    // if (is_user_address(address))
-    //     return nullptr;
+    if (is_user_address(address))
+        return nullptr;
 
     return MM.m_global_data.with([&](auto& global_data) {
         return global_data.region_tree.find_region_containing(address);

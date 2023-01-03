@@ -118,11 +118,11 @@ if [ -f mnt/usr/Tests/Kernel/TestProcFSWrite ]; then
     chmod 4755 mnt/usr/Tests/Kernel/TestProcFSWrite
 fi
 
-chmod 0400 mnt/res/kernel.map
-chmod 0400 mnt/boot/Kernel
-chmod 0400 mnt/boot/Kernel.debug
-chmod 600 mnt/etc/shadow
-chmod 755 mnt/res/devel/templates/*.postcreate
+# chmod 0400 mnt/res/kernel.map
+# chmod 0400 mnt/boot/Kernel
+# chmod 0400 mnt/boot/Kernel.debug
+# chmod 600 mnt/etc/shadow
+# chmod 755 mnt/res/devel/templates/*.postcreate
 echo "done"
 
 printf "creating initial filesystem structure... "

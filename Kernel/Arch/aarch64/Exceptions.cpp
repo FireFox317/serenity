@@ -93,7 +93,7 @@ void drop_to_exception_level_1()
         set_up_el1();
         break;
     default: {
-        PANIC("CPU booted in unsupported exception mode!");
+        // PANIC("CPU booted in unsupported exception mode!");
     }
     }
 }

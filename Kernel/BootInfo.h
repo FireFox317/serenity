@@ -22,8 +22,8 @@ extern "C" FlatPtr kernel_load_base;
 #if ARCH(X86_64)
 extern "C" u32 gdt64ptr;
 extern "C" u16 code64_sel;
-extern "C" PhysicalAddress boot_pml4t;
 #endif
+extern "C" PhysicalAddress boot_pml4t;
 extern "C" PhysicalAddress boot_pdpt;
 extern "C" PhysicalAddress boot_pd0;
 extern "C" PhysicalAddress boot_pd_kernel;

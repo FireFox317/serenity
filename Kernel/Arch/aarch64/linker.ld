@@ -11,17 +11,17 @@ PHDRS
 
 SECTIONS
 {
-    . = 0x00080000;
+    . = 0x2000080000;
 
     start_of_kernel_image = .;
 
-    .text ALIGN(4K) : AT (ADDR(.text))
+    .text ALIGN(4K) : AT (ADDR(.text) - 0x2000000000)
     {
         *(.text.first)
         *(.text*)
     } :text
 
-    .rodata ALIGN(4K) : AT (ADDR(.rodata))
+    .rodata ALIGN(4K) : AT (ADDR(.rodata) - 0x2000000000)
     {
         start_heap_ctors = .;
         *libkernel_heap.a:*(.init_array)
@@ -34,19 +34,19 @@ SECTIONS
         *(.rodata*)
     } :data
 
-    .data ALIGN(4K) : AT (ADDR(.data))
+    .data ALIGN(4K) : AT (ADDR(.data) - 0x2000000000)
     {
         *(.data*)
     } :data
 
-    .ksyms ALIGN(4K) : AT (ADDR(.ksyms))
+    .ksyms ALIGN(4K) : AT (ADDR(.ksyms) - 0x2000000000)
     {
         start_of_kernel_ksyms = .;
         *(.kernel_symbols)
         end_of_kernel_ksyms = .;
     } :ksyms
 
-    .bss ALIGN(4K) (NOLOAD) : AT (ADDR(.bss))
+    .bss ALIGN(4K) (NOLOAD) : AT (ADDR(.bss) - 0x2000000000)
     {
 	start_of_bss = .;
         *(.bss)

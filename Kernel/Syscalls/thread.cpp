@@ -57,9 +57,12 @@ ErrorOr<FlatPtr> Process::sys$create_thread(void* (*entry)(void*), Userspace<Sys
     regs.set_ip((FlatPtr)entry);
     regs.set_sp(user_sp.value());
 
+    address_space().with([&](auto& space) {
+        regs.set_page_table_base_pointer(space->page_directory().cr3());
+    });
+
 #if ARCH(X86_64)
     regs.set_flags(0x0202);
-    regs.cr3 = address_space().with([](auto& space) { return space->page_directory().cr3(); });
 
     regs.rdi = params.rdi;
     regs.rsi = params.rsi;

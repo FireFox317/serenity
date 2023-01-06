@@ -5,8 +5,11 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define EXEC_DEBUG 1
+
 #include <AK/ScopeGuard.h>
 #include <AK/TemporaryChange.h>
+#include <Kernel/Arch/CPU.h>
 #include <Kernel/Debug.h>
 #include <Kernel/FileSystem/Custody.h>
 #include <Kernel/FileSystem/OpenFileDescription.h>
@@ -154,7 +157,13 @@ static ErrorOr<FlatPtr> make_userspace_context_for_main_thread([[maybe_unused]] 
     regs.rsi = argv;
     regs.rdx = envp;
 #else
-#    error Unknown architecture
+    regs.x[0] = argv_entries.size();
+    regs.x[1] = argv;
+    regs.x[2] = envp;
+// #    error Unknown architecture
+// (void)envp;
+// (void)argv;
+// (void)argv_entries;
 #endif
 
     VERIFY(new_sp % 16 == 0);
@@ -204,8 +213,8 @@ static ErrorOr<FlatPtr> get_load_offset(const ElfW(Ehdr) & main_program_header, 
     constexpr FlatPtr load_range_size = 65536 * PAGE_SIZE; // 2**16 * PAGE_SIZE = 256MB
     constexpr FlatPtr minimum_load_offset_randomization_size = 10 * MiB;
 
-    auto random_load_offset_in_range([](auto start, auto size) {
-        return Memory::page_round_down(start + get_good_random<FlatPtr>() % size);
+    auto random_load_offset_in_range([](auto start, auto) {
+        return Memory::page_round_down(start);
     });
 
     if (main_program_header.e_type == ET_DYN) {
@@ -660,8 +669,10 @@ ErrorOr<void> Process::do_exec(NonnullLockRefPtr<OpenFileDescription> main_progr
     // and Processor::assume_context() or the next context switch.
     // If we used an InterruptDisabler that sti()'d on exit, we might timer tick'd too soon in exec().
     Processor::enter_critical();
-    prev_flags = cpu_flags();
-    cli();
+    prev_flags = Processor::are_interrupts_enabled();
+    // prev_flags = cpu_flags();
+    // prev_flags = 0;
+    Processor::disable_interrupts();
 
     // NOTE: Be careful to not trigger any page faults below!
 
@@ -686,10 +697,15 @@ ErrorOr<void> Process::do_exec(NonnullLockRefPtr<OpenFileDescription> main_progr
     new_main_thread->reset_fpu_state();
 
     auto& regs = new_main_thread->m_regs;
+    regs.set_ip(load_result.entry_eip);
+    regs.set_sp(new_userspace_sp);
+    regs.set_spsr_el1(false);
+    address_space().with([&](auto& space) {
+        regs.set_page_table_base_pointer(space->page_directory().cr3());
+    });
+#if ARCH(X86_64)
     regs.cs = GDT_SELECTOR_CODE3 | 3;
-    regs.rip = load_result.entry_eip;
-    regs.rsp = new_userspace_sp;
-    regs.cr3 = address_space().with([](auto& space) { return space->page_directory().cr3(); });
+#endif
 
     {
         TemporaryChange profiling_disabler(m_profiling, was_profiling);
@@ -718,10 +734,13 @@ static Array<ELF::AuxiliaryValue, auxiliary_vector_size> generate_auxiliary_vect
         { ELF::AuxiliaryValue::Gid, (long)gid.value() },
         { ELF::AuxiliaryValue::EGid, (long)egid.value() },
 
-        { ELF::AuxiliaryValue::Platform, Processor::platform_string() },
+        // { ELF::AuxiliaryValue::Platform, Processor::platform_string() },
+        { ELF::AuxiliaryValue::Platform, "test"sv },
+        // #if ARCH(X86_64)
         // FIXME: This is platform specific
-        { ELF::AuxiliaryValue::HwCap, (long)CPUID(1).edx() },
-
+        // { ELF::AuxiliaryValue::HwCap, (long)CPUID(1).edx() },
+        { ELF::AuxiliaryValue::HwCap, (long)0 },
+        // #endif
         { ELF::AuxiliaryValue::ClockTick, (long)TimeManagement::the().ticks_per_second() },
 
         // FIXME: Also take into account things like extended filesystem permissions? That's what linux does...
@@ -871,7 +890,9 @@ ErrorOr<void> Process::exec(NonnullOwnPtr<KString> path, NonnullOwnPtrVector<KSt
     // Read the first page of the program into memory so we can validate the binfmt of it
     char first_page[PAGE_SIZE];
     auto first_page_buffer = UserOrKernelBuffer::for_kernel_buffer((u8*)&first_page);
+    dbgln("Trying to read!");
     auto nread = TRY(description->read(first_page_buffer, sizeof(first_page)));
+    dbgln("     DID work!!");
 
     // 1) #! interpreted file
     auto shebang_result = find_shebang_interpreter_for_executable(first_page, nread);
@@ -949,6 +970,8 @@ ErrorOr<FlatPtr> Process::sys$execve(Userspace<Syscall::SC_execve_params const*>
         TRY(exec(move(path), move(arguments), move(environment), new_main_thread, prev_flags));
     }
 
+    dbgln("Should be here?");
+
     // NOTE: If we're here, the exec has succeeded and we've got a new executable image!
     //       We will not return normally from this function. Instead, the next time we
     //       get scheduled, it'll be at the entry point of the new executable.
@@ -958,6 +981,7 @@ ErrorOr<FlatPtr> Process::sys$execve(Userspace<Syscall::SC_execve_params const*>
 
     auto* current_thread = Thread::current();
     if (current_thread == new_main_thread) {
+        dbgln("Are we here?");
         // We need to enter the scheduler lock before changing the state
         // and it will be released after the context switch into that
         // thread. We should also still be in our critical section
@@ -971,10 +995,10 @@ ErrorOr<FlatPtr> Process::sys$execve(Userspace<Syscall::SC_execve_params const*>
 
     // NOTE: This code path is taken in the non-syscall case, i.e when the kernel spawns
     //       a userspace process directly (such as /bin/SystemServer on startup)
-
+    dbgln("Are we here?");
     if (prev_flags & 0x200)
-        sti();
-    Processor::leave_critical();
+        // sti();
+        Processor::leave_critical();
     return 0;
 }
 

@@ -92,7 +92,7 @@ elseif ("${SERENITY_ARCH}" STREQUAL "x86_64")
     set(CRTN_SOURCE "arch/x86_64/crtn.S")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-warning-option")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-warning-option -DNO_TLS")
 
 # Note: We link all these against NoCoverage so that we don't break ports by requiring coverage symbols
 # in runtime/startup objects.

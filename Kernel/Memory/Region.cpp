@@ -393,7 +393,7 @@ PageFaultResponse Region::handle_fault(PageFault const& fault)
         }
         return handle_cow_fault(page_index_in_region);
     }
-    dbgln("PV(error) fault in Region({})[{}] at {}", this, page_index_in_region, fault.vaddr());
+    dbgln("PV(error) fault in Region({})[{}][{}] at {}", this, this->name(), page_index_in_region, fault.vaddr());
     return PageFaultResponse::ShouldCrash;
 }
 

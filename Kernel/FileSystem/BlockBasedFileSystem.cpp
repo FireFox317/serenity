@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+// #define BBFS_DEBUG 1
+
 #include <AK/IntrusiveList.h>
 #include <Kernel/Debug.h>
 #include <Kernel/FileSystem/BlockBasedFileSystem.h>
@@ -239,12 +241,16 @@ ErrorOr<void> BlockBasedFileSystem::read_block(BlockIndex index, UserOrKernelBuf
         if (!entry->has_data) {
             auto base_offset = index.value() * block_size();
             auto entry_data_buffer = UserOrKernelBuffer::for_kernel_buffer(entry->data);
-            auto nread = TRY(file_description().read(entry_data_buffer, base_offset, block_size()));
+            auto nread_or_error = file_description().read(entry_data_buffer, base_offset, block_size());
+            if (nread_or_error.is_error())
+                dbgln("               OEPS");
+            auto nread = nread_or_error.release_value();
             VERIFY(nread == block_size());
             entry->has_data = true;
         }
-        if (buffer)
+        if (buffer) {
             TRY(buffer->write(entry->data + offset, count));
+        }
         return {};
     });
 }

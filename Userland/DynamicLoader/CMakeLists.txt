@@ -30,6 +30,9 @@ set(SOURCES ${LOADER_SOURCES} ${AK_SOURCES} ${ELF_SOURCES} ${LIBC_SOURCES1} ${LI
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -nostdlib -pie -fpic -DNO_TLS")
 
+# On aarch64 the stack protector will be accesced before the Loader could relocate itself..
+set_source_files_properties(main.cpp PROPERTIES COMPILE_FLAGS "-fno-stack-protector")
+
 set_source_files_properties(../Libraries/LibC/ssp.cpp PROPERTIES COMPILE_FLAGS "-fno-stack-protector")
 set_source_files_properties(../Libraries/LibC/ssp_nonshared.cpp PROPERTIES COMPILE_FLAGS "-fno-stack-protector")
 # Prevent GCC from removing null checks by marking the `FILE*` argument non-null

@@ -82,6 +82,8 @@ void _entry(int argc, char** argv, char** envp)
     perform_self_relocations(auxvp);
     init_libc();
 
+    puts("This worked!");
+
     int main_program_fd = -1;
     DeprecatedString main_program_path;
     bool is_secure = false;

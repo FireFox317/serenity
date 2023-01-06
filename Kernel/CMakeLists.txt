@@ -99,6 +99,8 @@ set(KERNEL_SOURCES
     Storage/NVMe/NVMeInterruptQueue.cpp
     Storage/NVMe/NVMePollQueue.cpp
     Storage/NVMe/NVMeQueue.cpp
+    Storage/Ramdisk/Controller.cpp
+    Storage/Ramdisk/Device.cpp
     Storage/DiskPartition.cpp
     Storage/StorageController.cpp
     Storage/StorageDevice.cpp
@@ -468,6 +470,10 @@ elseif("${SERENITY_ARCH}" STREQUAL "aarch64")
         Arch/aarch64/SafeMem.cpp
         Arch/aarch64/SmapDisabler.cpp
         Arch/aarch64/vector_table.S
+
+        Syscalls/mmap.cpp
+        Syscalls/execve.cpp
+        Syscall.cpp
     )
 
     # Otherwise linker errors e.g undefined reference to `__aarch64_cas8_acq_rel'
@@ -723,6 +729,8 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/kernel.map" DESTINATION res)
 
 if ("${SERENITY_ARCH}" STREQUAL "aarch64")
     embed_resource(Kernel serenity_boot_logo "Arch/aarch64/SerenityLogoRGB.ppm")
+
+    embed_resource(Kernel disk_image "../Build/aarch64/_temp_disk_image")
     add_custom_command(
             TARGET Kernel POST_BUILD
             COMMAND ${CMAKE_OBJCOPY} -O binary Kernel kernel8.img

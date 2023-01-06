@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+// #define PAGE_FAULT_DEBUG 1
+
 #include <AK/Assertions.h>
 #include <AK/NonnullRefPtrVector.h>
 #include <AK/StringView.h>
@@ -72,9 +74,7 @@ bool MemoryManager::is_initialized()
 static UNMAP_AFTER_INIT VirtualRange kernel_virtual_range()
 {
 #if ARCH(AARCH64)
-    // NOTE: We currently identity map the kernel image for aarch64, so the kernel virtual range
-    //       is the complete memory range.
-    return VirtualRange { VirtualAddress((FlatPtr)0), 0x3F000000 };
+    return VirtualRange { VirtualAddress(kernel_mapping_base), KERNEL_PD_END - kernel_mapping_base };
 #else
     size_t kernel_range_start = kernel_mapping_base + 2 * MiB; // The first 2 MiB are used for mapping the pre-kernel
     return VirtualRange { VirtualAddress(kernel_range_start), KERNEL_PD_END - kernel_range_start };
@@ -242,6 +242,10 @@ bool MemoryManager::is_allowed_to_read_physical_memory_for_userspace(PhysicalAdd
     });
 }
 
+extern "C" const u32 disk_image_start;
+// extern "C" const u32 disk_image_end;
+extern "C" const u32 disk_image_size;
+
 UNMAP_AFTER_INIT void MemoryManager::parse_memory_map()
 {
     // Register used memory regions that we know of.
@@ -251,6 +255,15 @@ UNMAP_AFTER_INIT void MemoryManager::parse_memory_map()
         global_data.used_memory_ranges.append(UsedMemoryRange { UsedMemoryRangeType::LowMemory, PhysicalAddress(0x00000000), PhysicalAddress(1 * MiB) });
 #endif
         global_data.used_memory_ranges.append(UsedMemoryRange { UsedMemoryRangeType::Kernel, PhysicalAddress(virtual_to_low_physical((FlatPtr)start_of_kernel_image)), PhysicalAddress(page_round_up(virtual_to_low_physical((FlatPtr)end_of_kernel_image)).release_value_but_fixme_should_propagate_errors()) });
+
+        dbgln("start_of_kernel_image: {}, end_of_kernel_image: {} size: {}", (FlatPtr)start_of_kernel_image, (FlatPtr)end_of_kernel_image, (FlatPtr)end_of_kernel_image - (FlatPtr)start_of_kernel_image);
+
+        // RAMDISK
+        auto start = ((FlatPtr)&disk_image_start - 0x2000000000);
+        // auto end = ((FlatPtr)&disk_image_end - 0x2000000000);
+
+        size_t length_ramdisk = Memory::page_round_up(disk_image_size).release_value_but_fixme_should_propagate_errors();
+        global_data.used_memory_ranges.append(UsedMemoryRange { UsedMemoryRangeType::BootModule, PhysicalAddress(start), PhysicalAddress(start + length_ramdisk) });
 
         if (multiboot_flags & 0x4) {
             auto* bootmods_start = multiboot_copy_boot_modules_array;
@@ -482,7 +495,9 @@ UNMAP_AFTER_INIT void MemoryManager::initialize_physical_pages()
             auto virtual_page_base_for_this_pt = virtual_page_array_current_page;
             auto pt_paddr = page_tables_base.offset(pt_index * PAGE_SIZE);
             auto* pt = reinterpret_cast<PageTableEntry*>(quickmap_page(pt_paddr));
+            dbgln("pt: {:p}", pt);
             __builtin_memset(pt, 0, PAGE_SIZE);
+            dbgln("quickmapping works!");
             for (size_t pte_index = 0; pte_index < PAGE_SIZE / sizeof(PageTableEntry); pte_index++) {
                 auto& pte = pt[pte_index];
                 pte.set_physical_page_base(physical_page_array_current_page);

@@ -31,20 +31,12 @@ public:
 
     FlatPtr cr3() const
     {
-#if ARCH(X86_64)
         return m_pml4t->paddr().get();
-#else
-        return m_directory_table->paddr().get();
-#endif
     }
 
     bool is_cr3_initialized() const
     {
-#if ARCH(X86_64)
         return m_pml4t;
-#else
-        return m_directory_table;
-#endif
     }
 
     AddressSpace* address_space() { return m_space; }
@@ -63,15 +55,10 @@ private:
     static void deregister_page_directory(PageDirectory* directory);
 
     AddressSpace* m_space { nullptr };
-#if ARCH(X86_64)
+
     RefPtr<PhysicalPage> m_pml4t;
-#endif
     RefPtr<PhysicalPage> m_directory_table;
-#if ARCH(X86_64)
     RefPtr<PhysicalPage> m_directory_pages[512];
-#else
-    RefPtr<PhysicalPage> m_directory_pages[4];
-#endif
     RecursiveSpinlock<LockRank::None> m_lock {};
 };
 

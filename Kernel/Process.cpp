@@ -228,6 +228,7 @@ ErrorOr<NonnullLockRefPtr<Process>> Process::try_create_user_process(LockRefPtr<
     auto path_string = TRY(KString::try_create(path));
     auto name = TRY(KString::try_create(parts.last()));
     auto process = TRY(Process::try_create(first_thread, move(name), uid, gid, ProcessID(0), false, VirtualFileSystem::the().root_custody(), nullptr, tty));
+    // auto process = TRY(Process::try_create(first_thread, move(name), uid, gid, ProcessID(0), false, nullptr, nullptr, tty));
 
     TRY(process->m_fds.with_exclusive([&](auto& fds) -> ErrorOr<void> {
         TRY(fds.try_resize(Process::OpenFileDescriptions::max_open()));

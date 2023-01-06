@@ -6,9 +6,12 @@
  */
 
 #include <Kernel/API/VirtualMemoryAnnotations.h>
+#include <Kernel/Arch/CPU.h>
 #include <Kernel/Arch/SafeMem.h>
 #include <Kernel/Arch/SmapDisabler.h>
-#include <Kernel/Arch/x86_64/MSR.h>
+#if ARCH(X86_64)
+#    include <Kernel/Arch/x86_64/MSR.h>
+#endif
 #include <Kernel/FileSystem/Custody.h>
 #include <Kernel/FileSystem/OpenFileDescription.h>
 #include <Kernel/Memory/AnonymousVMObject.h>
@@ -126,6 +129,8 @@ ErrorOr<FlatPtr> Process::sys$mmap(Userspace<Syscall::SC_mmap_params const*> use
     VERIFY_PROCESS_BIG_LOCK_ACQUIRED(this);
     TRY(require_promise(Pledge::stdio));
     auto params = TRY(copy_typed_from_user(user_params));
+
+    dbgln("   Doing MMAP");
 
     auto addr = (FlatPtr)params.addr;
     auto size = params.size;
@@ -563,8 +568,10 @@ ErrorOr<FlatPtr> Process::sys$allocate_tls(Userspace<char const*> initial_data, 
 
         TRY(main_thread->make_thread_specific_region({}));
 
+#if ARCH(X86_64)
         MSR fs_base_msr(MSR_FS_BASE);
         fs_base_msr.set(main_thread->thread_specific_data().get());
+#endif
 
         return m_master_tls_region.unsafe_ptr()->vaddr().get();
     });

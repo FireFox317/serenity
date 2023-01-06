@@ -9,4 +9,5 @@
 .type _invoke_entry,@function
 _invoke_entry: # (argc, argv, envp, entry)
     # FIXME: Possibly incomplete.
+    brk #10
     ret

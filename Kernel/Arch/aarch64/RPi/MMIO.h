@@ -31,7 +31,7 @@ public:
 private:
     MMIO();
 
-    unsigned int m_base_address;
+    FlatPtr m_base_address;
 };
 
 }

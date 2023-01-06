@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+// #define MALLOC_DEBUG 1
+
 #include <AK/BuiltinWrappers.h>
 #include <AK/Debug.h>
 #include <AK/ScopedValueRollback.h>
@@ -247,10 +249,14 @@ static ErrorOr<void*> os_alloc(size_t size, char const* name)
     flags |= MAP_RANDOMIZED;
 #endif
     auto* ptr = serenity_mmap(nullptr, size, PROT_READ | PROT_WRITE, flags, 0, 0, ChunkedBlock::block_size, name);
+
     VERIFY(ptr != nullptr);
+
     if (ptr == MAP_FAILED) {
+
         return ENOMEM;
     }
+
     return ptr;
 }
 
@@ -357,6 +363,7 @@ static ErrorOr<void*> malloc_impl(size_t size, size_t align, CallerWillInitializ
             }
         }
 #endif
+
         auto* block = (BigAllocationBlock*)TRY(os_alloc(real_size, "malloc: BigAllocationBlock"));
         g_malloc_stats.number_of_big_allocs++;
         new (block) BigAllocationBlock(real_size);
@@ -418,7 +425,9 @@ static ErrorOr<void*> malloc_impl(size_t size, size_t align, CallerWillInitializ
         g_malloc_stats.number_of_block_allocs++;
         char buffer[64];
         snprintf(buffer, sizeof(buffer), "malloc: ChunkedBlock(%zu)", good_size);
+
         block = (ChunkedBlock*)TRY(os_alloc(ChunkedBlock::block_size, buffer));
+
         new (block) ChunkedBlock(good_size);
         allocator->usable_blocks.append(*block);
         ++allocator->block_count;
@@ -429,6 +438,7 @@ static ErrorOr<void*> malloc_impl(size_t size, size_t align, CallerWillInitializ
     }
 
     VERIFY(ptr);
+
     if (block->is_full()) {
         g_malloc_stats.number_of_blocks_full++;
         dbgln_if(MALLOC_DEBUG, "Block {:p} is now full in size class {}", block, good_size);
@@ -441,6 +451,7 @@ static ErrorOr<void*> malloc_impl(size_t size, size_t align, CallerWillInitializ
         memset(ptr, MALLOC_SCRUB_BYTE, block->m_size);
 
     ue_notify_malloc(ptr, size);
+
     return ptr;
 }
 

@@ -107,8 +107,8 @@ static ErrorOr<FlatPtr> handle_ptrace(Kernel::Syscall::SC_ptrace_params const& p
 
         auto& peer_saved_registers = peer->get_register_dump_from_stack();
         // Verify that the saved registers are in usermode context
-        if ((peer_saved_registers.cs & 0x03) != 3)
-            return EFAULT;
+        // if ((peer_saved_registers.cs & 0x03) != 3)
+        //     return EFAULT;
 
         tracer->set_regs(regs);
         copy_ptrace_registers_into_kernel_registers(peer_saved_registers, regs);

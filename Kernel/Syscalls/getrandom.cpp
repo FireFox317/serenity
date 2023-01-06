@@ -21,9 +21,9 @@ ErrorOr<FlatPtr> Process::sys$getrandom(Userspace<void*> buffer, size_t buffer_s
         return EINVAL;
 
     auto data_buffer = TRY(UserOrKernelBuffer::for_user_buffer(buffer, buffer_size));
-
+    dbgln("calling getrandom..");
     return TRY(data_buffer.write_buffered<1024>(buffer_size, [&](Bytes bytes) {
-        get_good_random_bytes(bytes);
+        get_fast_random_bytes(bytes);
         return bytes.size();
     }));
 }

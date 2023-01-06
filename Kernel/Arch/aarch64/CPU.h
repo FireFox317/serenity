@@ -10,5 +10,6 @@ namespace Kernel {
 
 void drop_to_exception_level_1();
 void init_page_tables();
+void unmap_identity_map_kernel();
 
 }

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define CONTEXT_SWITCH_DEBUG 1
+
 #include <AK/Format.h>
 #include <AK/Vector.h>
 
@@ -96,7 +98,9 @@ void Processor::initialize_context_switching(Thread& initial_thread)
     auto& regs = initial_thread.regs();
     // clang-format off
     asm volatile(
+        // "msr SPSel, #1 \n" // Setting SP_EL1 to new_sp
         "mov sp, %[new_sp] \n"
+        // "msr SPSel, #0 \n"
 
         "sub sp, sp, 24 \n"
         "str %[from_to_thread], [sp, #0] \n"
@@ -238,21 +242,11 @@ FlatPtr Processor::init_context(Thread& thread, bool leave_crit)
     // x30 is the Link Register for the aarch64 ABI, so this will return to exit_kernel_thread when main thread function returns.
     eretframe.x[30] = FlatPtr(&exit_kernel_thread);
     eretframe.elr_el1 = thread_regs.elr_el1;
-    eretframe.sp_el0 = kernel_stack_top;
+    eretframe.sp_el0 = thread_regs.sp_el0;
     eretframe.tpidr_el0 = 0; // FIXME: Correctly initialize this when aarch64 has support for thread local storage.
 
-    Aarch64::SPSR_EL1 saved_program_status_register_el1 = {};
-
-    // Don't mask any interrupts, so all interrupts are enabled when transfering into the new context
-    saved_program_status_register_el1.D = 0;
-    saved_program_status_register_el1.A = 0;
-    saved_program_status_register_el1.I = 0;
-    saved_program_status_register_el1.F = 0;
-
-    // Set exception origin mode to EL1t, so when the context is restored, we'll be executing in EL1 with SP_EL0
-    // FIXME: This must be EL0t when aarch64 supports userspace applications.
-    saved_program_status_register_el1.M = Aarch64::SPSR_EL1::Mode::EL1t;
-    memcpy(&eretframe.spsr_el1, &saved_program_status_register_el1, sizeof(u64));
+    // VERIFY(thread_regs.spsr_el1 != 0);
+    eretframe.spsr_el1 = thread_regs.spsr_el1;
 
     // Push a TrapFrame onto the stack
     stack_top -= sizeof(TrapFrame);
@@ -289,6 +283,7 @@ void Processor::enter_trap(TrapFrame& trap, bool raise_irq)
         auto& current_trap = current_thread->current_trap();
         trap.next_trap = current_trap;
         current_trap = &trap;
+        // dbgln("trap.regs: {}", &trap.regs);
         // FIXME: Determine PreviousMode from TrapFrame when userspace programs can run on aarch64
         auto new_previous_mode = Thread::PreviousMode::KernelMode;
         if (current_thread->set_previous_mode(new_previous_mode)) {
@@ -407,6 +402,13 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread)
     VERIFY(to_thread->state() == Thread::State::Running);
 
     Processor::set_current_thread(*to_thread);
+
+    auto& from_regs = from_thread->regs();
+    auto& to_regs = to_thread->regs();
+    dbgln("Setting ttbr0: from_regs: {:x}, to_regs:{:x}", from_regs.ttbr0_el1, to_regs.ttbr0_el1);
+    if (from_regs.ttbr0_el1 != to_regs.ttbr0_el1)
+        Aarch64::Asm::set_ttbr0_el1(to_regs.ttbr0_el1);
+    dbgln("whoops ttbr0");
 
     to_thread->set_cpu(Processor::current().id());
 

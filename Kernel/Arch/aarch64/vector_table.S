@@ -6,7 +6,7 @@
 
 .section .text.vector_table
 
-#define TRAP_FRAME_SIZE     272
+#define REGISTER_STATE_SIZE     272
 #define SPSR_EL1_SLOT       (31 * 8)
 #define ELR_EL1_SLOT        (32 * 8)
 #define TPIDR_EL0_SLOT      (33 * 8)
@@ -34,7 +34,7 @@
 //
 .macro save_current_context
     // Allocate stack space for Trap Frame
-    sub sp, sp, #TRAP_FRAME_SIZE
+    sub sp, sp, #REGISTER_STATE_SIZE
 
     stp x0, x1,     [sp, #(0 * 0)]
     stp x2, x3,     [sp, #(2 * 8)]
@@ -60,19 +60,25 @@
     str x0, [sp, #ELR_EL1_SLOT]
     mrs x0, tpidr_el0
     str x0, [sp, #TPIDR_EL0_SLOT]
+    mrs x0, sp_el0
+    str x0, [sp, #SP_EL0_SLOT]
 
     // Set up TrapFrame struct on the stack
-    sub sp, sp, #16
     mov x0, sp
+    sub sp, sp, #16
     str x0, [sp, #(1 * 8)]
     str xzr, [sp, #(0 * 0)]
 
     // Move stack pointer into first argument register
     // and jump to the C++ exception handler
     mov x0, sp
+
+    //msr SPSel, #0 // Switch to SP_EL0
 .endm
 
 .macro restore_previous_context
+    //msr SPSel, #1 // Switch to SP_EL1
+    
     // Remove TrapFrame from the stack
     add sp, sp, #16
 
@@ -83,6 +89,8 @@
     msr elr_el1, x0
     ldr x0, [sp, #TPIDR_EL0_SLOT]
     msr tpidr_el0, x0
+    ldr x0, [sp, #SP_EL0_SLOT]
+    msr sp_el0, x0
 
     ldp x0, x1,     [sp, #(0 * 0)]
     ldp x2, x3,     [sp, #(2 * 8)]
@@ -101,7 +109,7 @@
     ldp x28, x29,   [sp, #(28 * 8)]
     ldr x30,        [sp, #(30 * 8)]
 
-    add sp, sp, #TRAP_FRAME_SIZE
+    add sp, sp, #REGISTER_STATE_SIZE
 .endm
 
 .global vector_table_el1
@@ -124,10 +132,10 @@ vector_table_el1:
     table_entry system_error_current_elsp_elx
 
     // Exceptions from Lower EL, where causing application is in AArch64 mode
-    unimplemented_entry
-    unimplemented_entry
-    unimplemented_entry
-    unimplemented_entry
+    table_entry synchronous_lower_el
+    table_entry irq_lower_el
+    table_entry fiq_lower_el
+    table_entry system_error_lower_el
 
     // Exceptions from Lower EL, where causing application is in AArch32 mode
     unimplemented_entry
@@ -143,7 +151,7 @@ synchronous_current_elsp_elx:
 
 irq_current_elsp_elx:
     save_current_context
-    bl exception_common
+    bl handle_interrupt
     restore_previous_context
     eret
 
@@ -160,15 +168,24 @@ system_error_current_elsp_elx:
     eret
 
 synchronous_current_elsp_el0:
+    //wfi
+    //msr SPSel, #0
+
     save_current_context
     bl exception_common
     restore_previous_context
     eret
 
 irq_current_elsp_el0:
+    //wfi
     // An IRQ will always switch the stack pointer to SP_EL1, however we want to use SP_EL0, so switch
     // to SP_EL0. This means that the stack of the currently executing thread is used as the irq stack.
-    msr SPSel, #0
+
+    // If we are coming from EL1 (kernel mode), we use the
+    // mrs x0, sp_el0
+    // mov sp, x0
+
+    //msr SPSel, #0
 
     save_current_context
     bl handle_interrupt
@@ -186,6 +203,31 @@ system_error_current_elsp_el0:
     bl exception_common
     restore_previous_context
     eret
+
+synchronous_lower_el:
+    save_current_context
+    bl exception_common
+    restore_previous_context
+    eret
+
+irq_lower_el:
+    save_current_context
+    bl handle_interrupt
+    restore_previous_context
+    eret
+
+fiq_lower_el:
+    save_current_context
+    bl exception_common
+    restore_previous_context
+    eret
+
+system_error_lower_el:
+    save_current_context
+    bl exception_common
+    restore_previous_context
+    eret
+
 
 .global restore_context_and_eret
 restore_context_and_eret:

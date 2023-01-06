@@ -7,6 +7,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define DYNAMIC_LOAD_DEBUG 1
+
 #include <AK/ByteBuffer.h>
 #include <AK/Debug.h>
 #include <AK/HashMap.h>
@@ -100,6 +102,7 @@ static Result<NonnullRefPtr<DynamicLoader>, DlErrorMessage> map_library(Deprecat
 
     // This actually maps the library at the intended and final place.
     auto main_library_object = loader->map();
+    dbgln("mapped {} at {}", loader->filepath(), loader->base_address());
     s_global_objects.set(filepath, *main_library_object);
 
     return loader;
@@ -182,7 +185,7 @@ static Result<void, DlErrorMessage> map_dependencies(DeprecatedString const& pat
 
     auto const& parent_object = (*s_loaders.get(path))->dynamic_object();
 
-    for (auto const& needed_name : get_dependencies(path)) {
+    for (auto& needed_name : get_dependencies(path)) {
         dbgln_if(DYNAMIC_LOAD_DEBUG, "needed library: {}", needed_name.characters());
 
         auto dependency_path = DynamicLinker::resolve_library(needed_name, parent_object);
@@ -647,7 +650,7 @@ void ELF::DynamicLinker::linker_main(DeprecatedString&& main_program_path, int m
 
     auto result2 = map_dependencies(main_program_path);
     if (result2.is_error()) {
-        warnln("{}", result2.error().text);
+        dbgln("{}", result2.error().text);
         fflush(stderr);
         _exit(1);
     }

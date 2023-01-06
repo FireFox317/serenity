@@ -40,6 +40,8 @@ struct ThreadRegisters {
     void set_sp0(FlatPtr value) { rsp0 = value; }
     void set_ip(FlatPtr value) { rip = value; }
 
+    void set_page_table_base_pointer(FlatPtr value) { cr3 = value; }
+
     FlatPtr cr3;
 
     FlatPtr ip() const

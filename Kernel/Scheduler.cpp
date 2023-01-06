@@ -418,6 +418,7 @@ void Scheduler::timer_tick(RegisterState const& regs)
 
     // Sanity checks
     VERIFY(current_thread->current_trap());
+    // dbgln("{} : {}", current_thread->current_trap()->regs, &regs);
     VERIFY(current_thread->current_trap()->regs == &regs);
 
     if (current_thread->process().is_kernel_process()) {

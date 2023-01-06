@@ -7,7 +7,7 @@
 
 #include <Kernel/API/Syscall.h>
 #include <Kernel/Arch/TrapFrame.h>
-#include <Kernel/Arch/x86_64/Interrupts.h>
+#include <Kernel/KSyms.h>
 #include <Kernel/Memory/MemoryManager.h>
 #include <Kernel/Panic.h>
 #include <Kernel/PerformanceManager.h>
@@ -15,6 +15,10 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/Sections.h>
 #include <Kernel/ThreadTracer.h>
+
+#if ARCH(X86_64)
+#    include <Kernel/Arch/x86_64/Interrupts.h>
+#endif
 
 namespace Kernel {
 
@@ -61,7 +65,9 @@ static ErrorOr<FlatPtr> handle(RegisterState&, FlatPtr function, FlatPtr arg1, F
 
 UNMAP_AFTER_INIT void initialize()
 {
+#if ARCH(X86_64)
     register_user_callable_interrupt_handler(syscall_vector, syscall_asm_entry);
+#endif
 }
 
 using Handler = auto(Process::*)(FlatPtr, FlatPtr, FlatPtr, FlatPtr) -> ErrorOr<FlatPtr>;
@@ -91,6 +97,20 @@ ErrorOr<FlatPtr> handle(RegisterState& regs, FlatPtr function, FlatPtr arg1, Fla
         dbgln("Unknown syscall {} requested ({:p}, {:p}, {:p}, {:p})", function, arg1, arg2, arg3, arg4);
         return ENOSYS;
     }
+
+    // dbgln("     SYSCALL!!! {}", function);
+
+    // if (function == 112 || function == 26) {
+    //     dbgln(" x0={:p}  x1={:p}  x2={:p}  x3={:p}  x4={:p}", regs.x[0], regs.x[1], regs.x[2], regs.x[3], regs.x[4]);
+    //     dbgln(" x5={:p}  x6={:p}  x7={:p}  x8={:p}  x9={:p}", regs.x[5], regs.x[6], regs.x[7], regs.x[8], regs.x[9]);
+    //     dbgln("x10={:p} x11={:p} x12={:p} x13={:p} x14={:p}", regs.x[10], regs.x[11], regs.x[12], regs.x[13], regs.x[14]);
+    //     dbgln("x15={:p} x16={:p} x17={:p} x18={:p} x19={:p}", regs.x[15], regs.x[16], regs.x[17], regs.x[18], regs.x[19]);
+    //     dbgln("x20={:p} x21={:p} x22={:p} x23={:p} x24={:p}", regs.x[20], regs.x[21], regs.x[22], regs.x[23], regs.x[24]);
+    //     dbgln("x25={:p} x26={:p} x27={:p} x28={:p} x29={:p}", regs.x[25], regs.x[26], regs.x[27], regs.x[28], regs.x[29]);
+    //     dbgln("x30={:p}", regs.x[30]);
+
+    //     dump_backtrace_from_base_pointer(regs.x[29]);
+    // }
 
     auto const syscall_metadata = s_syscall_table[function];
     if (syscall_metadata.handler == nullptr) {
@@ -141,11 +161,11 @@ ErrorOr<FlatPtr> handle(RegisterState& regs, FlatPtr function, FlatPtr arg1, Fla
 NEVER_INLINE void syscall_handler(TrapFrame* trap)
 {
     // Make sure SMAP protection is enabled on syscall entry.
-    clac();
+    // clac();
 
     auto& regs = *trap->regs;
     auto* current_thread = Thread::current();
-    VERIFY(current_thread->previous_mode() == Thread::PreviousMode::UserMode);
+    // VERIFY(current_thread->previous_mode() == Thread::PreviousMode::UserMode);
     auto& process = current_thread->process();
     if (process.is_dying()) {
         // It's possible this thread is just about to make a syscall while another is
@@ -163,20 +183,20 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
 
     // Apply a random offset in the range 0-255 to the stack pointer,
     // to make kernel stacks a bit less deterministic.
-    u32 lsw;
-    u32 msw;
-    read_tsc(lsw, msw);
+    // u32 lsw;
+    // u32 msw;
+    // read_tsc(lsw, msw);
 
-    auto* ptr = (char*)__builtin_alloca(lsw & 0xff);
-    asm volatile(""
-                 : "=m"(*ptr));
+    // auto* ptr = (char*)__builtin_alloca(lsw & 0xff);
+    // asm volatile(""
+    //              : "=m"(*ptr));
 
-    constexpr FlatPtr iopl_mask = 3u << 12;
+    // constexpr FlatPtr iopl_mask = 3u << 12;
 
-    FlatPtr flags = regs.flags();
-    if ((flags & (iopl_mask)) != 0) {
-        PANIC("Syscall from process with IOPL != 0");
-    }
+    // FlatPtr flags = regs.flags();
+    // if ((flags & (iopl_mask)) != 0) {
+    //     PANIC("Syscall from process with IOPL != 0");
+    // }
 
     Memory::MemoryManager::validate_syscall_preconditions(process, regs);
 
@@ -187,7 +207,9 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
     FlatPtr arg4;
     regs.capture_syscall_params(function, arg1, arg2, arg3, arg4);
 
+    Processor::enable_interrupts();
     auto result = Syscall::handle(regs, function, arg1, arg2, arg3, arg4);
+    Processor::disable_interrupts();
 
     if (result.is_error()) {
         regs.set_return_reg(-result.error().code());
@@ -205,7 +227,7 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
     current_thread->check_dispatch_pending_signal();
 
     // If the previous mode somehow changed something is seriously messed up...
-    VERIFY(current_thread->previous_mode() == Thread::PreviousMode::UserMode);
+    // VERIFY(current_thread->previous_mode() == Thread::PreviousMode::UserMode);
 
     // Check if we're supposed to return to userspace or just die.
     current_thread->die_if_needed();

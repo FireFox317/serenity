@@ -48,7 +48,7 @@ static void drop_to_el1()
 
     // Set up initial exception stack
     // FIXME: Define in linker script
-    Aarch64::Asm::set_sp_el1(0x40000);
+    Aarch64::Asm::set_sp_el1(0x2000000000 + 0x40000);
 
     Aarch64::SPSR_EL2 saved_program_status_register_el2 = {};
 
@@ -75,9 +75,18 @@ static void set_up_el1()
     system_control_register_el1.UMA = 1;  // Don't trap access to DAIF (debugging) flags of EFLAGS register
     system_control_register_el1.SA0 = 1;  // Enable stack access alignment check for EL0
     system_control_register_el1.SA = 1;   // Enable stack access alignment check for EL1
-    system_control_register_el1.A = 1;    // Enable memory access alignment check
+
+    // TODO: Userspace doesnt care about alignment :(
+    system_control_register_el1.A = 0; // Enable memory access alignment check
 
     Aarch64::SCTLR_EL1::write(system_control_register_el1);
+
+    Aarch64::CPACR_EL1 cpacr_el1 = {};
+    cpacr_el1.ZEN = 0;
+    cpacr_el1.FPEN = 0b11;
+    cpacr_el1.SMEN = 0;
+    cpacr_el1.TTA = 0;
+    Aarch64::CPACR_EL1::write(cpacr_el1);
 }
 
 void drop_to_exception_level_1()
@@ -93,7 +102,7 @@ void drop_to_exception_level_1()
         set_up_el1();
         break;
     default: {
-        PANIC("CPU booted in unsupported exception mode!");
+        // PANIC("CPU booted in unsupported exception mode!");
     }
     }
 }

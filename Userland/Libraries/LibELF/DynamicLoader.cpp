@@ -464,6 +464,10 @@ void DynamicLoader::load_program_headers()
     }
 }
 
+#define R_AARCH64_GLOB_DAT 1025
+#define R_AARCH64_TLS_TPREL64 1030 /* TP-relative offset, 64 bit.  */
+#define R_AARCH64_JUMP_SLOT 1026   /* Create PLT entry.  */
+
 DynamicLoader::RelocationResult DynamicLoader::do_relocation(const ELF::DynamicObject::Relocation& relocation, ShouldInitializeWeak should_initialize_weak)
 {
     FlatPtr* patch_ptr = nullptr;
@@ -482,7 +486,8 @@ DynamicLoader::RelocationResult DynamicLoader::do_relocation(const ELF::DynamicO
         // Apparently most loaders will just skip these?
         // Seems if the 'link editor' generates one something is funky with your code
         break;
-    case R_X86_64_64: {
+    case R_X86_64_64:
+    case R_AARCH64_ABS64: {
         auto symbol = relocation.symbol();
         auto res = lookup_symbol(symbol);
         if (!res.has_value()) {
@@ -500,7 +505,8 @@ DynamicLoader::RelocationResult DynamicLoader::do_relocation(const ELF::DynamicO
             *patch_ptr = call_ifunc_resolver(VirtualAddress { *patch_ptr }).get();
         break;
     }
-    case R_X86_64_GLOB_DAT: {
+    case R_X86_64_GLOB_DAT:
+    case R_AARCH64_GLOB_DAT: {
         auto symbol = relocation.symbol();
         auto res = lookup_symbol(symbol);
         VirtualAddress symbol_location;
@@ -528,7 +534,8 @@ DynamicLoader::RelocationResult DynamicLoader::do_relocation(const ELF::DynamicO
         *patch_ptr = symbol_location.get();
         break;
     }
-    case R_X86_64_RELATIVE: {
+    case R_X86_64_RELATIVE:
+    case R_AARCH64_RELATIVE: {
         if (!image().is_dynamic())
             break;
         // FIXME: According to the spec, R_386_relative ones must be done first.
@@ -565,7 +572,8 @@ DynamicLoader::RelocationResult DynamicLoader::do_relocation(const ELF::DynamicO
 
         break;
     }
-    case R_X86_64_JUMP_SLOT: {
+    case R_X86_64_JUMP_SLOT:
+    case R_AARCH64_JUMP_SLOT: {
         // FIXME: Or BIND_NOW flag passed in?
         if (m_dynamic_object->must_bind_now()) {
             // Eagerly BIND_NOW the PLT entries, doing all the symbol looking goodness
@@ -592,6 +600,10 @@ DynamicLoader::RelocationResult DynamicLoader::do_relocation(const ELF::DynamicO
         }
 
         *patch_ptr = call_ifunc_resolver(resolver).get();
+        break;
+    }
+    case R_AARCH64_TLS_TPREL64: {
+        dbgln("Skipping R_AARCH64_TLS_TPREL64");
         break;
     }
     default:

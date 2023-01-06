@@ -50,8 +50,8 @@ if [ "$SERENITY_TOOLCHAIN" = "Clang" ]; then
     mkdir -p mnt/usr/include/"$SERENITY_ARCH"-pc-serenity
     $CP --preserve=timestamps -r "$TOOLCHAIN_DIR"/include/c++ mnt/usr/include
     $CP --preserve=timestamps -r "$TOOLCHAIN_DIR"/include/"$SERENITY_ARCH"-pc-serenity/c++ mnt/usr/include/"$SERENITY_ARCH"-pc-serenity
-elif [ "$SERENITY_ARCH" != "aarch64" ]; then
-    $CP --preserve=timestamps "$SERENITY_SOURCE_DIR"/Toolchain/Local/"$SERENITY_ARCH"/"$SERENITY_ARCH"-pc-serenity/lib/libgcc_s.so mnt/usr/lib
+else
+    $CP --preserve=timestamps "$SERENITY_SOURCE_DIR"/Toolchain/Local/"$SERENITY_ARCH"/"$SERENITY_ARCH"-pc-serenity/lib/libgcc_s.so.1 mnt/usr/lib
     $CP --preserve=timestamps "$SERENITY_SOURCE_DIR"/Toolchain/Local/"$SERENITY_ARCH"/"$SERENITY_ARCH"-pc-serenity/lib/libstdc++.a mnt/usr/lib
     $CP --preserve=timestamps -r "$SERENITY_SOURCE_DIR"/Toolchain/Local/"$SERENITY_ARCH"/"$SERENITY_ARCH"-pc-serenity/include/c++ mnt/usr/include
 fi
@@ -118,11 +118,11 @@ if [ -f mnt/usr/Tests/Kernel/TestProcFSWrite ]; then
     chmod 4755 mnt/usr/Tests/Kernel/TestProcFSWrite
 fi
 
-chmod 0400 mnt/res/kernel.map
-chmod 0400 mnt/boot/Kernel
-chmod 0400 mnt/boot/Kernel.debug
-chmod 600 mnt/etc/shadow
-chmod 755 mnt/res/devel/templates/*.postcreate
+# chmod 0400 mnt/res/kernel.map
+# chmod 0400 mnt/boot/Kernel
+# chmod 0400 mnt/boot/Kernel.debug
+# chmod 600 mnt/etc/shadow
+# chmod 755 mnt/res/devel/templates/*.postcreate
 echo "done"
 
 printf "creating initial filesystem structure... "

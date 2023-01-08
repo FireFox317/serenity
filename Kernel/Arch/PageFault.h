@@ -28,8 +28,17 @@ struct PageFaultFlags {
 class PageFault {
 public:
     PageFault(u16 code, VirtualAddress vaddr)
-        : m_code(code)
-        , m_vaddr(vaddr)
+        : m_vaddr(vaddr)
+    {
+        m_type = (Type)(code & 1);
+        m_access = (Access)(code & 2);
+        m_mode = (Mode)(code & 4);
+        m_is_reserved_bit_violation = (code & 8) == PageFaultFlags::ReservedBitViolation;
+        m_is_instruction_fetch = (code & 16) == PageFaultFlags::InstructionFetch;
+    }
+
+    explicit PageFault(VirtualAddress vaddr)
+        : m_vaddr(vaddr)
     {
     }
 
@@ -43,22 +52,48 @@ public:
         Write = PageFaultFlags::Write,
     };
 
+    enum class Mode {
+        Supervisor = PageFaultFlags::SupervisorMode,
+        User = PageFaultFlags::UserMode,
+    };
+
     VirtualAddress vaddr() const { return m_vaddr; }
-    u16 code() const { return m_code; }
+    u16 code() const
+    {
+        u16 code = 0;
+        code |= (u16)m_type;
+        code |= (u16)m_access;
+        code |= (u16)m_mode;
+        code |= m_is_reserved_bit_violation ? 8 : 0;
+        code |= m_is_instruction_fetch ? 16 : 0;
+        return code;
+    }
 
-    Type type() const { return (Type)(m_code & 1); }
-    Access access() const { return (Access)(m_code & 2); }
+    void set_type(Type type) { m_type = type; }
+    Type type() const { return m_type; }
 
-    bool is_not_present() const { return (m_code & 1) == PageFaultFlags::NotPresent; }
-    bool is_protection_violation() const { return (m_code & 1) == PageFaultFlags::ProtectionViolation; }
-    bool is_read() const { return (m_code & 2) == PageFaultFlags::Read; }
-    bool is_write() const { return (m_code & 2) == PageFaultFlags::Write; }
-    bool is_user() const { return (m_code & 4) == PageFaultFlags::UserMode; }
-    bool is_supervisor() const { return (m_code & 4) == PageFaultFlags::SupervisorMode; }
-    bool is_instruction_fetch() const { return (m_code & 16) == PageFaultFlags::InstructionFetch; }
+    void set_access(Access access) { m_access = access; }
+    Access access() const { return m_access; }
+
+    void set_mode(Mode mode) { m_mode = mode; }
+    Mode mode() const { return m_mode; }
+
+    bool is_not_present() const { return m_type == Type::PageNotPresent; }
+    bool is_protection_violation() const { return m_type == Type::ProtectionViolation; }
+    bool is_read() const { return m_access == Access::Read; }
+    bool is_write() const { return m_access == Access::Write; }
+    bool is_user() const { return m_mode == Mode::User; }
+    bool is_supervisor() const { return m_mode == Mode::Supervisor; }
+    bool is_reserved_bit_violation() const { return m_is_reserved_bit_violation; }
+    bool is_instruction_fetch() const { return m_is_instruction_fetch; }
 
 private:
-    u16 m_code;
+    Type m_type;
+    Access m_access;
+    Mode m_mode;
+    bool m_is_reserved_bit_violation { false };
+    bool m_is_instruction_fetch { false };
+
     VirtualAddress m_vaddr;
 };
 

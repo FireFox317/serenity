@@ -987,10 +987,6 @@ public:
     u64 time_in_user() const { return m_total_time_scheduled_user.load(AK::MemoryOrder::memory_order_relaxed); }
     u64 time_in_kernel() const { return m_total_time_scheduled_kernel.load(AK::MemoryOrder::memory_order_relaxed); }
 
-    enum class PreviousMode : u8 {
-        KernelMode = 0,
-        UserMode
-    };
     PreviousMode previous_mode() const { return m_previous_mode; }
     bool set_previous_mode(PreviousMode mode)
     {

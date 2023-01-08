@@ -8,6 +8,7 @@
 
 #include <AK/Platform.h>
 #include <AK/Types.h>
+#include <Kernel/Arch/RegisterState.h>
 #include <Kernel/VirtualAddress.h>
 
 namespace Kernel {
@@ -41,6 +42,8 @@ public:
         : m_vaddr(vaddr)
     {
     }
+
+    void handle(RegisterState& regs);
 
     enum class Type {
         PageNotPresent = PageFaultFlags::NotPresent,

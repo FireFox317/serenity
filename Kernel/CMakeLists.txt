@@ -350,6 +350,7 @@ if ("${SERENITY_ARCH}" STREQUAL "x86_64")
         ${KERNEL_SOURCES}
         Arch/x86_64/init.cpp
 
+        Arch/PageFault.cpp
         Arch/Processor.cpp
 
         Arch/x86_64/CMOS.cpp
@@ -445,6 +446,7 @@ elseif("${SERENITY_ARCH}" STREQUAL "aarch64")
     set(KERNEL_SOURCES
         ${KERNEL_SOURCES}
         ${RPI_SOURCES}
+        Arch/PageFault.cpp
         Arch/Processor.cpp
 
         Arch/aarch64/boot.S

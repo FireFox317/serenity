@@ -6,12 +6,14 @@
 
 #include <Kernel/Arch/DebugOutput.h>
 #include <Kernel/Arch/aarch64/RPi/UART.h>
+#include <Kernel/Memory/MemoryManager.h>
 
 namespace Kernel {
 
 void debug_output(char ch)
 {
-    RPi::UART::the().send(ch);
+    if (Memory::MemoryManager::is_initialized())
+        RPi::UART::the().send(ch);
 }
 
 }

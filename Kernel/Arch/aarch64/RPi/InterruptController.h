@@ -9,6 +9,7 @@
 #include <AK/StringView.h>
 #include <AK/Types.h>
 #include <Kernel/Arch/aarch64/IRQController.h>
+#include <Kernel/Memory/Region.h>
 
 namespace Kernel::RPi {
 
@@ -34,6 +35,7 @@ private:
         return "Raspberry Pi Interrupt Controller"sv;
     }
 
+    NonnullOwnPtr<Memory::Region> m_region;
     InterruptControllerRegisters volatile* m_registers;
 };
 

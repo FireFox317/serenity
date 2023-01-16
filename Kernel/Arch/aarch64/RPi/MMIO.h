@@ -7,6 +7,8 @@
 #pragma once
 
 #include <AK/Types.h>
+#include <Kernel/Forward.h>
+#include <Kernel/Memory/Region.h>
 
 namespace Kernel::RPi {
 
@@ -22,11 +24,17 @@ public:
     void write(FlatPtr offset, u32 value) { *peripheral_address(offset) = value; }
 
     u32 volatile* peripheral_address(FlatPtr offset) { return (u32 volatile*)(m_base_address + offset); }
+
     template<class T>
-    T volatile* peripheral(FlatPtr offset) { return (T volatile*)peripheral_address(offset); }
+    T volatile* peripheral(Memory::Region& region)
+    {
+        return (T volatile*)region.vaddr().get();
+    }
 
     FlatPtr peripheral_base_address() const { return m_base_address; }
     FlatPtr peripheral_end_address() const { return m_base_address + 0x00FFFFFF; }
+
+    ErrorOr<NonnullOwnPtr<Memory::Region>> map_peripheral(FlatPtr offset, StringView name);
 
 private:
     MMIO();

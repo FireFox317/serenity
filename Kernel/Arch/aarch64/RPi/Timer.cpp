@@ -10,6 +10,7 @@
 #include <Kernel/Arch/aarch64/RPi/MMIO.h>
 #include <Kernel/Arch/aarch64/RPi/Mailbox.h>
 #include <Kernel/Arch/aarch64/RPi/Timer.h>
+#include <Kernel/Memory/Region.h>
 
 namespace Kernel::RPi {
 
@@ -30,9 +31,10 @@ enum FlagBits {
     SystemTimerMatch3 = 1 << 3,
 };
 
-Timer::Timer()
+Timer::Timer(NonnullOwnPtr<Memory::Region> region)
     : HardwareTimer(1)
-    , m_registers(MMIO::the().peripheral<TimerRegisters>(0x3000))
+    , m_region(move(region))
+    , m_registers(MMIO::the().peripheral<TimerRegisters>(*region))
 {
     // FIXME: Actually query the frequency of the timer. By default it is 100MHz.
     m_frequency = 1e6;
@@ -45,7 +47,8 @@ Timer::~Timer() = default;
 
 NonnullLockRefPtr<Timer> Timer::initialize()
 {
-    return adopt_lock_ref(*new Timer);
+    auto region = MMIO::the().map_peripheral(0x3000, "RPi Timer"sv).release_value_but_fixme_should_propagate_errors();
+    return adopt_lock_ref(*new Timer(move(region)));
 }
 
 u64 Timer::microseconds_since_boot()

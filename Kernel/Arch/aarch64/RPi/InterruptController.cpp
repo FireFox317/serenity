@@ -7,6 +7,7 @@
 #include <Kernel/Arch/aarch64/RPi/InterruptController.h>
 #include <Kernel/Arch/aarch64/RPi/MMIO.h>
 #include <Kernel/Interrupts/GenericInterruptHandler.h>
+#include <Kernel/Memory/Region.h>
 
 namespace Kernel::RPi {
 
@@ -28,7 +29,8 @@ struct InterruptControllerRegisters {
 };
 
 InterruptController::InterruptController()
-    : m_registers(MMIO::the().peripheral<InterruptControllerRegisters>(0xB200))
+    : m_region(MMIO::the().map_peripheral(0xB200, "RPi Interrupt Controller"sv).release_value_but_fixme_should_propagate_errors())
+    , m_registers(MMIO::the().peripheral<InterruptControllerRegisters>(*m_region))
 {
 }
 

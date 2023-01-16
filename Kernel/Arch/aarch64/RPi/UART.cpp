@@ -89,8 +89,9 @@ enum ControlBits {
     CTSHardwareFlowControlEnable = 1 << 15,
 };
 
-UART::UART()
-    : m_registers(MMIO::the().peripheral<UARTRegisters>(0x20'1000))
+UART::UART(NonnullOwnPtr<Memory::Region> region)
+    : m_region(move(region))
+    , m_registers(MMIO::the().peripheral<UARTRegisters>(*m_region))
 {
     // Disable UART while changing configuration.
     m_registers->control = 0;
@@ -118,8 +119,12 @@ UART::UART()
 
 UART& UART::the()
 {
-    static UART instance;
-    return instance;
+    static UART* s_the;
+    if (!s_the) {
+        auto region = MMIO::the().map_peripheral(0x20'1000, "RPi UART"sv).release_value_but_fixme_should_propagate_errors();
+        s_the = new UART(move(region));
+    }
+    return *s_the;
 }
 
 void UART::send(u32 c)

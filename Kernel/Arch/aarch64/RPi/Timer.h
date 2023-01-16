@@ -65,7 +65,7 @@ public:
     static u32 set_clock_rate(ClockID, u32 rate_hz, bool skip_setting_turbo = true);
 
 private:
-    Timer();
+    explicit Timer(NonnullOwnPtr<Memory::Region>);
 
     enum class TimerID : u32 {
         Timer0 = 0,
@@ -79,9 +79,10 @@ private:
     //^ IRQHandler
     virtual bool handle_irq(RegisterState const&) override;
 
+    NonnullOwnPtr<Memory::Region> m_region;
     TimerRegisters volatile* m_registers;
-    u32 m_interrupt_interval { 0 };
 
+    u32 m_interrupt_interval { 0 };
     u64 m_main_counter_last_read { 0 };
     u64 m_main_counter_drift { 0 };
 };

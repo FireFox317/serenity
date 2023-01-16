@@ -37,15 +37,20 @@ struct GPIOControlRegisters {
     u32 test;
 };
 
-GPIO::GPIO()
-    : m_registers(MMIO::the().peripheral<GPIOControlRegisters>(0x20'0000))
+GPIO::GPIO(NonnullOwnPtr<Memory::Region> region)
+    : m_region(move(region))
+    , m_registers(MMIO::the().peripheral<GPIOControlRegisters>(*m_region))
 {
 }
 
 GPIO& GPIO::the()
 {
-    static GPIO instance;
-    return instance;
+    static GPIO* s_the;
+    if (!s_the) {
+        auto region = MMIO::the().map_peripheral(0x20'0000, "RPi GPIO"sv).release_value_but_fixme_should_propagate_errors();
+        s_the = new GPIO(move(region));
+    }
+    return *s_the;
 }
 
 void GPIO::set_pin_function(unsigned pin_number, PinFunction function)

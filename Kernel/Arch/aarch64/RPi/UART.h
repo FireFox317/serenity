@@ -8,6 +8,7 @@
 #pragma once
 
 #include <AK/Types.h>
+#include <Kernel/Memory/Region.h>
 
 namespace Kernel::RPi {
 
@@ -25,12 +26,13 @@ public:
     void print_str(char const*, size_t);
 
 private:
-    UART();
+    explicit UART(NonnullOwnPtr<Memory::Region>);
 
     void set_baud_rate(int baud_rate, int uart_frequency_in_hz);
     void wait_until_we_can_send();
     void wait_until_we_can_receive();
 
+    NonnullOwnPtr<Memory::Region> m_region;
     UARTRegisters volatile* m_registers;
 };
 

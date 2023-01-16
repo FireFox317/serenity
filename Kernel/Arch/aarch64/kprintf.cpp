@@ -34,8 +34,10 @@ void kernelputstr(char const* characters, size_t length)
     if (!characters)
         return;
 
-    auto& uart = Kernel::RPi::UART::the();
-    uart.print_str(characters, length);
+    if (Memory::MemoryManager::is_initialized()) {
+        auto& uart = Kernel::RPi::UART::the();
+        uart.print_str(characters, length);
+    }
 
     for (size_t i = 0; i < length; ++i)
         console_out(characters[i]);
@@ -46,8 +48,10 @@ void kernelcriticalputstr(char const* characters, size_t length)
     if (!characters)
         return;
 
-    auto& uart = Kernel::RPi::UART::the();
-    uart.print_str(characters, length);
+    if (Memory::MemoryManager::is_initialized()) {
+        auto& uart = Kernel::RPi::UART::the();
+        uart.print_str(characters, length);
+    }
 
     for (size_t i = 0; i < length; ++i)
         critical_console_out(characters[i]);

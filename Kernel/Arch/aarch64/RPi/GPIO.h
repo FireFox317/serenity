@@ -8,6 +8,7 @@
 
 #include <AK/Array.h>
 #include <AK/Types.h>
+#include <Kernel/Memory/Region.h>
 
 namespace Kernel::RPi {
 
@@ -51,9 +52,10 @@ public:
     }
 
 private:
-    GPIO();
+    explicit GPIO(NonnullOwnPtr<Memory::Region>);
     void internal_enable_pins(u32 enable[2], PullUpDownState state);
 
+    NonnullOwnPtr<Memory::Region> m_region;
     GPIOControlRegisters volatile* m_registers;
 };
 

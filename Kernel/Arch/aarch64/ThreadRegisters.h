@@ -15,6 +15,7 @@ struct ThreadRegisters {
     u64 x[31];
     u64 elr_el1;
     u64 sp_el0;
+    u64 ttbr0_el1;
 
     FlatPtr ip() const { return elr_el1; }
     void set_ip(FlatPtr value) { elr_el1 = value; }

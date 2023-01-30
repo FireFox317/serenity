@@ -14,8 +14,6 @@
 
 namespace Kernel {
 
-ProcessID g_init_pid { 0 };
-
 }
 
 // Delay.cpp
@@ -32,7 +30,7 @@ void microseconds_delay(u32)
 namespace Kernel::PCI {
 
 bool g_pci_access_io_probe_failed { false };
-bool g_pci_access_is_disabled_from_commandline { false };
+bool g_pci_access_is_disabled_from_commandline { true };
 
 }
 

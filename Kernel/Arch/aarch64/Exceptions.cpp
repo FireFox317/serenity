@@ -74,7 +74,10 @@ static void setup_el1()
     system_control_register_el1.UMA = 1;  // Don't trap access to DAIF (debugging) flags of EFLAGS register
     system_control_register_el1.SA0 = 1;  // Enable stack access alignment check for EL0
     system_control_register_el1.SA = 1;   // Enable stack access alignment check for EL1
-    system_control_register_el1.A = 1;    // Enable memory access alignment check
+
+    // NOTE: Disable memory access alignment check as we cannot enforce
+    //       proper alignment for userspace applications.
+    system_control_register_el1.A = 0;
 
     Aarch64::SCTLR_EL1::write(system_control_register_el1);
 

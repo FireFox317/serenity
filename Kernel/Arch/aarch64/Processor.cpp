@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+// #define CONTEXT_SWITCH_DEBUG 1
+
 #include <AK/Format.h>
 #include <AK/Vector.h>
 
@@ -41,6 +43,8 @@ void Processor::install(u32 cpu)
 
 void Processor::initialize()
 {
+    deferred_call_pool_init();
+
     dmesgln("CPU[{}]: Supports {}", m_cpu, build_cpu_feature_names(m_features));
     dmesgln("CPU[{}]: Physical address bit width: {}", m_cpu, m_physical_address_bit_width);
     dmesgln("CPU[{}]: Virtual address bit width: {}", m_cpu, m_virtual_address_bit_width);
@@ -67,6 +71,28 @@ void Processor::flush_tlb_local(VirtualAddress, size_t)
 void Processor::flush_tlb(Memory::PageDirectory const*, VirtualAddress vaddr, size_t page_count)
 {
     flush_tlb_local(vaddr, page_count);
+}
+
+void Processor::leave_critical()
+{
+    InterruptDisabler disabler;
+    current().do_leave_critical();
+}
+
+void Processor::do_leave_critical()
+{
+    VERIFY(m_in_critical > 0);
+    if (m_in_critical == 1) {
+        if (m_in_irq == 0) {
+            deferred_call_execute_pending();
+            VERIFY(m_in_critical == 1);
+        }
+        m_in_critical = 0;
+        if (m_in_irq == 0)
+            check_invoke_scheduler();
+    } else {
+        m_in_critical = m_in_critical - 1;
+    }
 }
 
 u32 Processor::clear_critical()
@@ -206,11 +232,50 @@ void Processor::switch_context(Thread*& from_thread, Thread*& to_thread)
     dbgln_if(CONTEXT_SWITCH_DEBUG, "switch_context <-- from {} {} to {} {}", VirtualAddress(from_thread), *from_thread, VirtualAddress(to_thread), *to_thread);
 }
 
-void Processor::assume_context(Thread& thread, FlatPtr flags)
+void Processor::assume_context(Thread& thread, FlatPtr)
 {
-    (void)thread;
-    (void)flags;
-    TODO_AARCH64();
+    dbgln_if(CONTEXT_SWITCH_DEBUG, "Assume context for thread {} {}", VirtualAddress(&thread), thread);
+
+    VERIFY_INTERRUPTS_DISABLED();
+    Scheduler::prepare_after_exec();
+    // in_critical() should be 2 here. The critical section in Process::exec
+    // and then the scheduler lock
+    VERIFY(Processor::in_critical() == 2);
+
+    Processor::current().init_context(thread, true);
+
+    thread.current_trap() = nullptr;
+
+    auto to_ip = FlatPtr(&thread_context_first_enter);
+    // auto from_thread = &thread;
+
+    asm volatile(
+        // "ldr x0, %[to_sp] \n"
+        "mov sp, %[to_sp] \n"
+
+        "sub sp, sp, 24 \n"
+        "mov x0, %[from_thread] \n"
+        "mov x1, %[from_thread] \n"
+        "mov x2, %[to_ip] \n"
+
+        // "ldr x0, %[from_thread] \n"
+        // "ldr x1, %[from_thread] \n"
+        // "ldr x2, %[to_ip] \n"
+        "str x0, [sp, #0] \n"
+        "str x1, [sp, #8] \n"
+        "str x2, [sp, #16] \n"
+
+        "bl enter_thread_context \n"
+        "ldr x0, [sp, #16]\n"
+        "br x0 \n"
+        :
+        : [to_sp] "r"(thread.regs().sp_el0),
+        [to_ip] "r"(to_ip),
+        [from_thread] "r"(&thread)
+        : "memory", "x0", "x1", "x2");
+    // do_assume_context(&thread, flags);
+
+    VERIFY_NOT_REACHED();
 }
 
 FlatPtr Processor::init_context(Thread& thread, bool leave_crit)
@@ -239,10 +304,11 @@ FlatPtr Processor::init_context(Thread& thread, bool leave_crit)
     memcpy(eretframe.x, thread_regs.x, sizeof(thread_regs.x));
 
     // x30 is the Link Register for the aarch64 ABI, so this will return to exit_kernel_thread when main thread function returns.
-    eretframe.x[30] = FlatPtr(&exit_kernel_thread);
+    // eretframe.x[30] = FlatPtr(&exit_kernel_thread);
     eretframe.elr_el1 = thread_regs.elr_el1;
     eretframe.sp_el0 = thread_regs.sp_el0;
     eretframe.tpidr_el0 = thread.thread_specific_data().get();
+    dbgln("init_context: {:x}", thread_regs.spsr_el1);
     eretframe.spsr_el1 = thread_regs.spsr_el1;
 
     // Push a TrapFrame onto the stack
@@ -304,6 +370,10 @@ void Processor::exit_trap(TrapFrame& trap)
     // FIXME: Figure out if we need prev_irq_level, see duplicated code in Kernel/Arch/x86/common/Processor.cpp
     m_in_irq = 0;
 
+    // Process the deferred call queue. Among other things, this ensures
+    // that any pending thread unblocks happen before we enter the scheduler.
+    deferred_call_execute_pending();
+
     auto* current_thread = Processor::current_thread();
     if (current_thread) {
         auto& current_trap = current_thread->current_trap();
@@ -336,7 +406,7 @@ ErrorOr<Vector<FlatPtr, 32>> Processor::capture_stack_trace(Thread& thread, size
 {
     (void)thread;
     (void)max_frames;
-    TODO_AARCH64();
+    // TODO_AARCH64();
     return Vector<FlatPtr, 32> {};
 }
 
@@ -395,6 +465,8 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread)
     VERIFY(from_thread == to_thread || from_thread->state() != Thread::State::Running);
     VERIFY(to_thread->state() == Thread::State::Running);
 
+    dbgln_if(CONTEXT_SWITCH_DEBUG, "switch_context <-- from {} {} to {} {} (enter_thread_context)", VirtualAddress(from_thread), *from_thread, VirtualAddress(to_thread), *to_thread);
+
     Processor::set_current_thread(*to_thread);
 
     auto& from_regs = from_thread->regs();
@@ -415,6 +487,105 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread)
 StringView Processor::platform_string()
 {
     return "aarch64"sv;
+}
+
+UNMAP_AFTER_INIT void Processor::deferred_call_pool_init()
+{
+    size_t pool_count = sizeof(m_deferred_call_pool) / sizeof(m_deferred_call_pool[0]);
+    for (size_t i = 0; i < pool_count; i++) {
+        auto& entry = m_deferred_call_pool[i];
+        entry.next = i < pool_count - 1 ? &m_deferred_call_pool[i + 1] : nullptr;
+        new (entry.handler_storage) DeferredCallEntry::HandlerFunction;
+        entry.was_allocated = false;
+    }
+    m_pending_deferred_calls = nullptr;
+    m_free_deferred_call_pool_entry = &m_deferred_call_pool[0];
+}
+
+void Processor::deferred_call_return_to_pool(DeferredCallEntry* entry)
+{
+    VERIFY(m_in_critical);
+    VERIFY(!entry->was_allocated);
+
+    entry->handler_value() = {};
+
+    entry->next = m_free_deferred_call_pool_entry;
+    m_free_deferred_call_pool_entry = entry;
+}
+
+DeferredCallEntry* Processor::deferred_call_get_free()
+{
+    VERIFY(m_in_critical);
+
+    if (m_free_deferred_call_pool_entry) {
+        // Fast path, we have an entry in our pool
+        auto* entry = m_free_deferred_call_pool_entry;
+        m_free_deferred_call_pool_entry = entry->next;
+        VERIFY(!entry->was_allocated);
+        return entry;
+    }
+
+    auto* entry = new DeferredCallEntry;
+    new (entry->handler_storage) DeferredCallEntry::HandlerFunction;
+    entry->was_allocated = true;
+    return entry;
+}
+
+void Processor::deferred_call_execute_pending()
+{
+    VERIFY(m_in_critical);
+
+    if (!m_pending_deferred_calls)
+        return;
+    auto* pending_list = m_pending_deferred_calls;
+    m_pending_deferred_calls = nullptr;
+
+    // We pulled the stack of pending deferred calls in LIFO order, so we need to reverse the list first
+    auto reverse_list =
+        [](DeferredCallEntry* list) -> DeferredCallEntry* {
+        DeferredCallEntry* rev_list = nullptr;
+        while (list) {
+            auto next = list->next;
+            list->next = rev_list;
+            rev_list = list;
+            list = next;
+        }
+        return rev_list;
+    };
+    pending_list = reverse_list(pending_list);
+
+    do {
+        pending_list->invoke_handler();
+
+        // Return the entry back to the pool, or free it
+        auto* next = pending_list->next;
+        if (pending_list->was_allocated) {
+            pending_list->handler_value().~Function();
+            delete pending_list;
+        } else
+            deferred_call_return_to_pool(pending_list);
+        pending_list = next;
+    } while (pending_list);
+}
+
+void Processor::deferred_call_queue_entry(DeferredCallEntry* entry)
+{
+    VERIFY(m_in_critical);
+    entry->next = m_pending_deferred_calls;
+    m_pending_deferred_calls = entry;
+}
+
+void Processor::deferred_call_queue(Function<void()> callback)
+{
+    // NOTE: If we are called outside of a critical section and outside
+    // of an irq handler, the function will be executed before we return!
+    ScopedCritical critical;
+    auto& cur_proc = Processor::current();
+
+    auto* entry = cur_proc.deferred_call_get_free();
+    entry->handler_value() = move(callback);
+
+    cur_proc.deferred_call_queue_entry(entry);
 }
 
 }

@@ -24,15 +24,28 @@
 #include <Kernel/Arch/aarch64/TrapFrame.h>
 #include <Kernel/CommandLine.h>
 #include <Kernel/Devices/DeviceManagement.h>
+#include <Kernel/Devices/FullDevice.h>
+#include <Kernel/Devices/MemoryDevice.h>
+#include <Kernel/Devices/RandomDevice.h>
+#include <Kernel/Devices/SelfTTYDevice.h>
+#include <Kernel/Devices/SerialDevice.h>
+#include <Kernel/Devices/ZeroDevice.h>
+#include <Kernel/FileSystem/SysFS/Subsystems/Firmware/Directory.h>
 #include <Kernel/FileSystem/VirtualFileSystem.h>
 #include <Kernel/Graphics/Console/BootFramebufferConsole.h>
+#include <Kernel/Graphics/GraphicsManagement.h>
 #include <Kernel/JailManagement.h>
 #include <Kernel/KSyms.h>
 #include <Kernel/Memory/MemoryManager.h>
 #include <Kernel/Panic.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/Storage/StorageManagement.h>
+#include <Kernel/TTY/ConsoleManagement.h>
+#include <Kernel/TTY/PTYMultiplexer.h>
 #include <Kernel/TTY/VirtualConsole.h>
+#include <Kernel/Tasks/FinalizerTask.h>
+#include <Kernel/Tasks/SyncTask.h>
+#include <Kernel/WorkQueue.h>
 
 typedef void (*ctor_func_t)();
 extern ctor_func_t start_heap_ctors[];
@@ -76,10 +89,35 @@ void init_stage2(void*)
 {
     Process::register_new(Process::current());
 
+    // WorkQueue::initialize();
+
     auto firmware_version = query_firmware_version();
     dmesgln("Firmware version: {}", firmware_version);
 
     VirtualFileSystem::initialize();
+
+    // (void)SerialDevice::must_create(0).leak_ref();
+    // (void)SerialDevice::must_create(1).leak_ref();
+    // (void)SerialDevice::must_create(2).leak_ref();
+    // (void)SerialDevice::must_create(3).leak_ref();
+
+    // VMWareBackdoor::the(); // don't wait until first mouse packet
+    MUST(HIDManagement::initialize());
+
+    GraphicsManagement::the().initialize();
+    ConsoleManagement::the().initialize();
+
+    // SyncTask::spawn();
+    FinalizerTask::spawn();
+
+    FirmwareSysFSDirectory::initialize();
+
+    (void)MemoryDevice::must_create().leak_ref();
+    (void)ZeroDevice::must_create().leak_ref();
+    (void)FullDevice::must_create().leak_ref();
+    (void)RandomDevice::must_create().leak_ref();
+    (void)SelfTTYDevice::must_create().leak_ref();
+    PTYMultiplexer::initialize();
 
     StorageManagement::the().initialize(kernel_command_line().root_device(), kernel_command_line().is_force_pio(), kernel_command_line().is_nvme_polling_enabled());
     if (VirtualFileSystem::the().mount_root(StorageManagement::the().root_filesystem()).is_error()) {
@@ -152,9 +190,12 @@ extern "C" [[noreturn]] void init()
     dmesgln("Starting SerenityOS...");
 
     Memory::MemoryManager::initialize(0);
+
     DeviceManagement::initialize();
     SysFSComponentRegistry::initialize();
     DeviceManagement::the().attach_null_device(*NullDevice::must_initialize());
+    DeviceManagement::the().attach_console_device(*ConsoleDevice::must_create());
+    DeviceManagement::the().attach_device_control_device(*DeviceControlDevice::must_create());
 
     // Invoke all static global constructors in the kernel.
     // Note that we want to do this as early as possible.

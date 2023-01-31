@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+// #define THREAD_DEBUG 1
+#define SIGNAL_DEBUG 1
+
 #include <AK/ScopeGuard.h>
 #include <AK/Singleton.h>
 #include <AK/StringBuilder.h>

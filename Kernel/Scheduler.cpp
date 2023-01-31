@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+// #define SCHEDULER_DEBUG 1
+// #define SCHEDULER_RUNNABLE_DEBUG 1
+
 #include <AK/BuiltinWrappers.h>
 #include <AK/ScopeGuard.h>
 #include <AK/Singleton.h>

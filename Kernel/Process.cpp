@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define DUMP_REGIONS_ON_CRASH 1
+
 #include <AK/Singleton.h>
 #include <AK/StdLibExtras.h>
 #include <AK/Time.h>
@@ -471,7 +473,7 @@ void Process::crash(int signal, Optional<RegisterState const&> regs, bool out_of
 #if ARCH(X86_64)
         constexpr bool userspace_backtrace = false;
 #elif ARCH(AARCH64)
-        constexpr bool userspace_backtrace = true;
+        constexpr bool userspace_backtrace = false;
 #else
 #    error "Unknown architecture"
 #endif

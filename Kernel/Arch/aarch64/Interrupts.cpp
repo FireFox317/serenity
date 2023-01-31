@@ -84,7 +84,7 @@ extern "C" void exception_common(Kernel::TrapFrame* trap_frame)
 
     auto esr_el1 = Kernel::Aarch64::ESR_EL1::read();
     auto fault_address = Aarch64::FAR_EL1::read().virtual_address;
-    Processor::enable_interrupts();
+    // Processor::enable_interrupts();
 
     constexpr bool print_state = false;
     if constexpr (print_state) {
@@ -99,7 +99,8 @@ extern "C" void exception_common(Kernel::TrapFrame* trap_frame)
         syscall_handler(trap_frame);
     } else {
         dump_registers(*trap_frame->regs);
-        PANIC("Unexpected exception!");
+        trap_frame->regs->elr_el1 = trap_frame->regs->elr_el1 + 4;
+        // PANIC("Unexpected exception!");
     }
 
     Processor::disable_interrupts();

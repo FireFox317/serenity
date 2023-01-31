@@ -85,7 +85,7 @@ static const HandlerMetadata s_syscall_table[] = {
 
 ErrorOr<FlatPtr> handle(RegisterState& regs, FlatPtr function, FlatPtr arg1, FlatPtr arg2, FlatPtr arg3, FlatPtr arg4)
 {
-    VERIFY_INTERRUPTS_ENABLED();
+    // VERIFY_INTERRUPTS_ENABLED();
     auto* current_thread = Thread::current();
     auto& process = current_thread->process();
     current_thread->did_syscall();
@@ -204,7 +204,9 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
     FlatPtr arg4;
     regs.capture_syscall_params(function, arg1, arg2, arg3, arg4);
 
+    // Processor::enable_interrupts();
     auto result = Syscall::handle(regs, function, arg1, arg2, arg3, arg4);
+    // Processor::disable_interrupts();
 
     if (result.is_error()) {
         regs.set_return_reg(-result.error().code());

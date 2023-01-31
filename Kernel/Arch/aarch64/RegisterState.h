@@ -58,11 +58,11 @@ struct RegisterState {
     }
 };
 
-inline void copy_kernel_registers_into_ptrace_registers(PtraceRegisters& ptrace_regs, RegisterState const& kernel_regs)
+inline void copy_kernel_registers_into_ptrace_registers(PtraceRegisters&, RegisterState const&)
 {
-    (void)ptrace_regs;
-    (void)kernel_regs;
-    TODO_AARCH64();
+    // (void)ptrace_regs;
+    // (void)kernel_regs;
+    // TODO_AARCH64();
 }
 
 inline void copy_ptrace_registers_into_kernel_registers(RegisterState& kernel_regs, PtraceRegisters const& ptrace_regs)

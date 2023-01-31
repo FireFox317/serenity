@@ -979,6 +979,8 @@ ErrorOr<FlatPtr> Process::sys$execve(Userspace<Syscall::SC_execve_params const*>
         Processor::assume_context(*current_thread, prev_flags);
         VERIFY_NOT_REACHED();
 #elif ARCH(AARCH64)
+        FlatPtr prev_flags = 0;
+        Processor::assume_context(*current_thread, prev_flags);
         TODO_AARCH64();
 #else
 #    error Unknown architecture

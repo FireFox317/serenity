@@ -88,7 +88,7 @@ static bool mount_by_line(DeprecatedString const& line)
 
     auto fd_or_error = get_source_fd(filename);
     if (fd_or_error.is_error()) {
-        outln("{}", fd_or_error.release_error());
+        dbgln("{}", fd_or_error.release_error());
         return false;
     }
     auto const fd = fd_or_error.release_value();
@@ -97,7 +97,7 @@ static bool mount_by_line(DeprecatedString const& line)
 
     auto error_or_void = Core::System::mount(fd, mountpoint, fstype, flags);
     if (error_or_void.is_error()) {
-        warnln("Failed to mount {} (FD: {}) ({}) on {}: {}", filename, fd, fstype, mountpoint, error_or_void.error());
+        dbgln("Failed to mount {} (FD: {}) ({}) on {}: {}", filename, fd, fstype, mountpoint, error_or_void.error());
         return false;
     }
 

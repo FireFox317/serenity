@@ -242,7 +242,7 @@ FlatPtr Processor::init_context(Thread& thread, bool leave_crit)
     eretframe.x[30] = FlatPtr(&exit_kernel_thread);
     eretframe.elr_el1 = thread_regs.elr_el1;
     eretframe.sp_el0 = thread_regs.sp_el0;
-    eretframe.tpidr_el0 = 0; // FIXME: Correctly initialize this when aarch64 has support for thread local storage.
+    eretframe.tpidr_el0 = thread.thread_specific_data().get();
     eretframe.spsr_el1 = thread_regs.spsr_el1;
 
     // Push a TrapFrame onto the stack
@@ -403,6 +403,9 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread)
         Aarch64::Asm::set_ttbr0_el1(to_regs.ttbr0_el1);
 
     to_thread->set_cpu(Processor::current().id());
+
+    if (to_thread->current_trap())
+        to_thread->get_register_dump_from_stack().set_thread_specific_data(to_thread->thread_specific_data());
 
     auto in_critical = to_thread->saved_critical();
     VERIFY(in_critical > 0);

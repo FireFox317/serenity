@@ -11,7 +11,10 @@
 
 #include <Kernel/Arch/CPU.h>
 #include <Kernel/Arch/x86_64/ASM_wrapper.h>
+#include <Kernel/Arch/x86_64/MSR.h>
+#include <Kernel/Arch/x86_64/Processor.h>
 #include <Kernel/ExecutionMode.h>
+#include <Kernel/VirtualAddress.h>
 
 #include <AK/Platform.h>
 VALIDATE_IS_X86()
@@ -73,6 +76,12 @@ struct [[gnu::packed]] RegisterState {
     ExecutionMode previous_mode() const
     {
         return ((cs & 3) != 0) ? ExecutionMode::User : ExecutionMode::Kernel;
+    }
+
+    void set_thread_specific_data(VirtualAddress thread_specific_data)
+    {
+        MSR fs_base_msr(MSR_FS_BASE);
+        fs_base_msr.set(thread_specific_data.get());
     }
 };
 

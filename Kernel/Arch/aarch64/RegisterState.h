@@ -9,6 +9,7 @@
 #include <LibC/sys/arch/aarch64/regs.h>
 
 #include <Kernel/ExecutionMode.h>
+#include <Kernel/VirtualAddress.h>
 
 #include <AK/Platform.h>
 VALIDATE_IS_AARCH64()
@@ -49,6 +50,11 @@ struct RegisterState {
         arg2 = x[2];
         arg3 = x[3];
         arg4 = x[4];
+    }
+
+    void set_thread_specific_data(VirtualAddress thread_specific_data)
+    {
+        tpidr_el0 = thread_specific_data.get();
     }
 };
 

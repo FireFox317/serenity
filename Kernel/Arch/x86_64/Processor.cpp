@@ -1543,8 +1543,7 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread)
     }
 
     auto& processor = Processor::current();
-    MSR fs_base_msr(MSR_FS_BASE);
-    fs_base_msr.set(to_thread->thread_specific_data().get());
+    to_thread->get_register_dump_from_stack().set_thread_specific_data(to_thread->thread_specific_data());
 
     if (from_regs.cr3 != to_regs.cr3)
         write_cr3(to_regs.cr3);

@@ -26,14 +26,12 @@ struct RegisterState {
     FlatPtr userspace_sp() const { return sp_el0; }
     void set_userspace_sp(FlatPtr value)
     {
-        (void)value;
-        TODO_AARCH64();
+        sp_el0 = value;
     }
     FlatPtr ip() const { return elr_el1; }
     void set_ip(FlatPtr value)
     {
-        (void)value;
-        TODO_AARCH64();
+        elr_el1 = value;
     }
     FlatPtr bp() const { return x[29]; }
 
@@ -58,7 +56,7 @@ struct RegisterState {
     }
 };
 
-inline void copy_kernel_registers_into_ptrace_registers(PtraceRegisters&, RegisterState const&)
+inline void copy_kernel_registers_into_ptrace_registers(PtraceRegisters& ptrace_regs, RegisterState const& kernel_regs)
 {
     for (auto i = 0; i < 31; i++)
         ptrace_regs.x[i] = kernel_regs.x[i];

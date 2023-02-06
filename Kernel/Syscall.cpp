@@ -204,6 +204,8 @@ NEVER_INLINE void syscall_handler(TrapFrame* trap)
     FlatPtr arg4;
     regs.capture_syscall_params(function, arg1, arg2, arg3, arg4);
 
+    // dbgln("syscall: {}", function);
+
     // Processor::enable_interrupts();
     auto result = Syscall::handle(regs, function, arg1, arg2, arg3, arg4);
     // Processor::disable_interrupts();

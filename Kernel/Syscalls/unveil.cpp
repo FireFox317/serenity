@@ -106,6 +106,8 @@ ErrorOr<FlatPtr> Process::sys$unveil(Userspace<Syscall::SC_unveil_params const*>
 
     auto path = TRY(get_syscall_path_argument(params.path));
 
+    dbgln("unveil: {}", path);
+
     if (path->is_empty() || !path->view().starts_with('/'))
         return EINVAL;
 

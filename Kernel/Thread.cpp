@@ -5,7 +5,7 @@
  */
 
 // #define THREAD_DEBUG 1
-#define SIGNAL_DEBUG 1
+// #define SIGNAL_DEBUG 1
 
 #include <AK/ScopeGuard.h>
 #include <AK/Singleton.h>
@@ -692,6 +692,7 @@ void Thread::send_signal(u8 signal, [[maybe_unused]] Process* sender)
             dbgln("Signal: {} sent {} to {}", *sender, signal, process());
         else
             dbgln("Signal: Kernel send {} to {}", signal, process());
+        dump_backtrace();
     }
 
     m_pending_signals |= 1 << (signal - 1);
@@ -1118,7 +1119,7 @@ DispatchSignalResult Thread::dispatch_signal(u8 signal)
         constexpr static FlatPtr thread_red_zone_size = 128;
 #elif ARCH(AARCH64)
         constexpr static FlatPtr thread_red_zone_size = 0; // FIXME
-        TODO_AARCH64();
+                                                           // TODO_AARCH64();
 #else
 #    error Unknown architecture in dispatch_signal
 #endif
@@ -1160,6 +1161,8 @@ DispatchSignalResult Thread::dispatch_signal(u8 signal)
 
         TRY(push_value_on_user_stack(stack, handler_vaddr.get()));
 
+        // dbgln("on_stack: {:x}, {:x}, {:x}, {:x}", pointer_to_ucontext, pointer_to_signal_info, signal, handler_vaddr.get());
+
         // We write back the adjusted stack value into the register state.
         // We have to do this because we can't just pass around a reference to a packed field, as it's UB.
         state.set_userspace_sp(stack);
@@ -1186,6 +1189,7 @@ DispatchSignalResult Thread::dispatch_signal(u8 signal)
 
     auto signal_trampoline_addr = process.signal_trampoline().get();
     regs.set_ip(signal_trampoline_addr);
+    // dbgln("signal trampoline address: {:p}", signal_trampoline_addr);
 
 #if ARCH(X86_64)
     // Userspace flags might be invalid for function entry, according to SYSV ABI (section 3.2.1).

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define LOCAL_SOCKET_DEBUG 1
+
 #include <AK/Singleton.h>
 #include <AK/StringBuilder.h>
 #include <Kernel/API/Ioctl.h>

@@ -84,6 +84,8 @@ ErrorOr<FlatPtr> Process::sys$sigreturn([[maybe_unused]] RegisterState& register
     // Here, we restore the state pushed by dispatch signal and asm_signal_trampoline.
     auto stack_ptr = registers.userspace_sp();
 
+    // dbgln("CALLING sigreturn");
+
     // Stack state (created by the signal trampoline):
     // saved_ax, ucontext, signal_info, fpu_state?.
 
@@ -102,6 +104,7 @@ ErrorOr<FlatPtr> Process::sys$sigreturn([[maybe_unused]] RegisterState& register
     stack_ptr += sizeof(__ucontext);
 
     auto saved_ax = TRY(copy_typed_from_user<FlatPtr>(stack_ptr));
+    stack_ptr += sizeof(FlatPtr);
 
     Thread::current()->m_signal_mask = ucontext.uc_sigmask;
     Thread::current()->m_currently_handled_signal = 0;

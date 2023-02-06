@@ -72,7 +72,7 @@ static UNMAP_AFTER_INIT VirtualRange kernel_virtual_range()
 {
 #if ARCH(AARCH64)
     // NOTE: This is not the same as x86_64, because the aarch64 kernel currently doesn't use the pre-kernel.
-    return VirtualRange { VirtualAddress(kernel_mapping_base), KERNEL_PD_END - kernel_mapping_base };
+    return VirtualRange { VirtualAddress(kernel_mapping_base), (KERNEL_PD_END - kernel_mapping_base) * 2 };
 #else
     size_t kernel_range_start = kernel_mapping_base + 2 * MiB; // The first 2 MiB are used for mapping the pre-kernel
     return VirtualRange { VirtualAddress(kernel_range_start), KERNEL_PD_END - kernel_range_start };

@@ -42,3 +42,5 @@ export TMPDIR=/tmp
 PROGRAMS_ALLOWED_TO_MODIFY_DEFAULT_TERMIOS=(stty)
 
 for /usr/share/shell/completion/*.sh { source $it }
+
+ls

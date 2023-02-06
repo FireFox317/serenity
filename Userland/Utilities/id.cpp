@@ -30,6 +30,8 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     TRY(Core::System::unveil(nullptr, nullptr));
     TRY(Core::System::pledge("stdio rpath"));
 
+    dbgln("hello");
+
     Core::ArgsParser args_parser;
     args_parser.add_option(flag_print_uid, "Print UID", nullptr, 'u');
     args_parser.add_option(flag_print_gid, "Print GID", nullptr, 'g');
@@ -57,8 +59,11 @@ ErrorOr<int> serenity_main(Main::Arguments arguments)
     } else {
         account = TRY(Core::Account::self(Core::Account::Read::PasswdOnly));
     }
-
-    return print_id_objects(account.value());
+    dbgln("hmm");
+    auto return_code = print_id_objects(account.value());
+    dbgln("after");
+    dbgln("return_code: {}", return_code);
+    return return_code;
 }
 
 static bool print_uid_object(Core::Account const& account)
@@ -108,6 +113,7 @@ static bool print_full_id_list(Core::Account const& account)
     struct group* gr = getgrgid(gid);
 
     out("uid={}({}) gid={}({})", uid, pw ? pw->pw_name : "n/a", gid, gr ? gr->gr_name : "n/a");
+    dbgln("uid={}({}) gid={}({})", uid, pw ? pw->pw_name : "n/a", gid, gr ? gr->gr_name : "n/a");
 
     for (auto extra_gid : account.extra_gids()) {
         auto* gr = getgrgid(extra_gid);

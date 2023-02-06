@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+// #define SH_DEBUG 1
+
 #include "Shell.h"
 #include "Execution.h"
 #include "Formatter.h"
@@ -742,13 +744,10 @@ ErrorOr<RefPtr<Job>> Shell::run_command(const AST::Command& command)
 
     argv.append(nullptr);
 
-    asm volatile("brk #0");
-
     auto sync_pipe = TRY(Core::System::pipe2(0));
     auto child = TRY(Core::System::fork());
 
     if (child == 0) {
-        asm volatile("brk #0");
         close(sync_pipe[1]);
 
         m_pid = getpid();

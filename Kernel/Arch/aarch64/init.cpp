@@ -204,7 +204,13 @@ extern "C" [[noreturn]] void init()
 
     auto& framebuffer = RPi::Framebuffer::the();
     if (framebuffer.initialized()) {
-        g_boot_console = &try_make_lock_ref_counted<Graphics::BootFramebufferConsole>(PhysicalAddress((PhysicalPtr)framebuffer.gpu_buffer()), framebuffer.width(), framebuffer.height(), framebuffer.pitch()).value().leak_ref();
+        multiboot_framebuffer_addr = PhysicalAddress((PhysicalPtr)framebuffer.gpu_buffer());
+        multiboot_framebuffer_type = MULTIBOOT_FRAMEBUFFER_TYPE_RGB;
+        multiboot_framebuffer_width = framebuffer.width();
+        multiboot_framebuffer_height = framebuffer.height();
+        multiboot_framebuffer_pitch = framebuffer.pitch();
+
+        g_boot_console = &try_make_lock_ref_counted<Graphics::BootFramebufferConsole>(multiboot_framebuffer_addr, framebuffer.width(), framebuffer.height(), framebuffer.pitch()).value().leak_ref();
         draw_logo(static_cast<Graphics::BootFramebufferConsole*>(g_boot_console.load())->unsafe_framebuffer_data());
     }
 

@@ -210,8 +210,6 @@ public:
 
     ALWAYS_INLINE static FPUState const& clean_fpu_state()
     {
-        static FPUState s_clean_fpu_state {};
-        dbgln("FIXME: Processor: Actually return correct FPUState.");
         return s_clean_fpu_state;
     }
 
@@ -262,6 +260,8 @@ public:
 
     static u32 smp_wake_n_idle_processors(u32 wake_count);
 
+    static void store_fpu_state(FPUState* fpu_state);
+
     [[noreturn]] static void halt();
 
     [[noreturn]] void initialize_context_switching(Thread& initial_thread);
@@ -299,6 +299,8 @@ private:
     Thread* m_current_thread;
     Thread* m_idle_thread;
     u32 m_in_critical { 0 };
+
+    static FPUState s_clean_fpu_state;
 
     // FIXME: Once there is code in place to differentiate IRQs from synchronous exceptions (syscalls),
     //        this member should be incremented. Also this member shouldn't be a FlatPtr.

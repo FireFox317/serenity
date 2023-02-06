@@ -61,7 +61,11 @@ static void login(Core::Account const& account, LoginWindow& window)
 
 ErrorOr<int> serenity_main(Main::Arguments arguments)
 {
+    dbgln("What about this?");
+
     auto app = TRY(GUI::Application::try_create(arguments));
+
+    dbgln("this worked?");
 
     TRY(Core::System::pledge("stdio recvfd sendfd cpath chown rpath exec proc id"));
     TRY(Core::System::unveil("/home", "r"));

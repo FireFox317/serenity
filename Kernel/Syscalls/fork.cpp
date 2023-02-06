@@ -103,7 +103,7 @@ ErrorOr<FlatPtr> Process::sys$fork(RegisterState& regs)
     child_first_thread->m_alternative_signal_stack_size = Thread::current()->m_alternative_signal_stack_size;
 
     dbgln("      FORK");
-    dump_registers(regs);
+    // dump_registers(regs);
 #if ARCH(X86_64)
     auto& child_regs = child_first_thread->m_regs;
     child_regs.rax = 0; // fork() returns 0 in the child :^)
@@ -141,7 +141,7 @@ ErrorOr<FlatPtr> Process::sys$fork(RegisterState& regs)
     child_regs.elr_el1 = regs.elr_el1;
     child_regs.sp_el0 = regs.sp_el0;
     child_regs.spsr_el1 = regs.spsr_el1;
-    dbgln("fork: sprs: {:x}", regs.spsr_el1);
+    // dbgln("fork: sprs: {:x}", regs.spsr_el1);
     (void)regs;
     // TODO_AARCH64();
 #else
@@ -154,7 +154,7 @@ ErrorOr<FlatPtr> Process::sys$fork(RegisterState& regs)
             for (auto& region : parent_space->region_tree().regions()) {
                 dbgln_if(FORK_DEBUG, "fork: cloning Region '{}' @ {}", region.name(), region.vaddr());
                 auto region_clone = TRY(region.try_clone());
-                TRY(region_clone->map(child_space->page_directory(), Memory::ShouldFlushTLB::No));
+                TRY(region_clone->map(child_space->page_directory(), Memory::ShouldFlushTLB::Yes));
                 TRY(child_space->region_tree().place_specifically(*region_clone, region.range()));
                 auto* child_region = region_clone.leak_ptr();
 

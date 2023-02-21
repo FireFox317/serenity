@@ -113,6 +113,14 @@ void Processor::flush_tlb_local(VirtualAddress, size_t)
     asm volatile("isb");
 }
 
+void Processor::flush_entire_tlb_local()
+{
+    asm volatile("dsb ishst");
+    asm volatile("tlbi vmalle1is");
+    asm volatile("dsb ish");
+    asm volatile("isb");
+}
+
 void Processor::flush_tlb(Memory::PageDirectory const*, VirtualAddress vaddr, size_t page_count)
 {
     flush_tlb_local(vaddr, page_count);
@@ -449,8 +457,10 @@ extern "C" void enter_thread_context(Thread* from_thread, Thread* to_thread)
 
     auto& from_regs = from_thread->regs();
     auto& to_regs = to_thread->regs();
-    if (from_regs.ttbr0_el1 != to_regs.ttbr0_el1)
+    if (from_regs.ttbr0_el1 != to_regs.ttbr0_el1) {
         Aarch64::Asm::set_ttbr0_el1(to_regs.ttbr0_el1);
+        Processor::flush_entire_tlb_local();
+    }
 
     to_thread->set_cpu(Processor::current().id());
 

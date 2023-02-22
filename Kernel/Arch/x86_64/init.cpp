@@ -7,9 +7,6 @@
 #include <AK/Types.h>
 #include <Kernel/Arch/InterruptManagement.h>
 #include <Kernel/Arch/Processor.h>
-#include <Kernel/Arch/x86_64/Hypervisor/VMWareBackdoor.h>
-#include <Kernel/Arch/x86_64/Interrupts/APIC.h>
-#include <Kernel/Arch/x86_64/Interrupts/PIC.h>
 #include <Kernel/BootInfo.h>
 #include <Kernel/Bus/PCI/Access.h>
 #include <Kernel/Bus/PCI/Initializer.h>
@@ -59,6 +56,8 @@
 #include <Kernel/WorkQueue.h>
 #include <Kernel/kstdio.h>
 
+#include <Kernel/Arch/aarch64/RPi/Framebuffer.h>
+
 // Defined in the linker script
 typedef void (*ctor_func_t)();
 extern ctor_func_t start_heap_ctors[];
@@ -69,10 +68,10 @@ extern ctor_func_t end_ctors[];
 extern uintptr_t __stack_chk_guard;
 READONLY_AFTER_INIT uintptr_t __stack_chk_guard __attribute__((used));
 
-extern "C" u8 start_of_safemem_text[];
-extern "C" u8 end_of_safemem_text[];
-extern "C" u8 start_of_safemem_atomic_text[];
-extern "C" u8 end_of_safemem_atomic_text[];
+// extern "C" u8 start_of_safemem_text[];
+// extern "C" u8 end_of_safemem_text[];
+// extern "C" u8 start_of_safemem_atomic_text[];
+// extern "C" u8 end_of_safemem_atomic_text[];
 
 extern "C" u8 end_of_kernel_image[];
 
@@ -81,10 +80,12 @@ size_t multiboot_copy_boot_modules_count;
 
 READONLY_AFTER_INIT bool g_in_early_boot;
 
+extern "C" const u32 disk_image_start;
+extern "C" const u32 disk_image_size;
+
 namespace Kernel {
 
 [[noreturn]] static void init_stage2(void*);
-static void setup_serial_debug();
 
 // boot.S expects these functions to exactly have the following signatures.
 // We declare them here to ensure their signatures don't accidentally change.
@@ -114,72 +115,62 @@ ALWAYS_INLINE static Processor& bsp_processor()
 // Once multi-tasking is ready, we spawn a new thread that starts in the
 // init_stage2() function. Initialization continues there.
 
-extern "C" {
-READONLY_AFTER_INIT PhysicalAddress start_of_prekernel_image;
-READONLY_AFTER_INIT PhysicalAddress end_of_prekernel_image;
-READONLY_AFTER_INIT size_t physical_to_virtual_offset;
-READONLY_AFTER_INIT FlatPtr kernel_mapping_base;
-READONLY_AFTER_INIT FlatPtr kernel_load_base;
-READONLY_AFTER_INIT PhysicalAddress boot_pml4t;
-READONLY_AFTER_INIT PhysicalAddress boot_pdpt;
-READONLY_AFTER_INIT PhysicalAddress boot_pd0;
-READONLY_AFTER_INIT PhysicalAddress boot_pd_kernel;
-READONLY_AFTER_INIT Memory::PageTableEntry* boot_pd_kernel_pt1023;
-READONLY_AFTER_INIT char const* kernel_cmdline;
-READONLY_AFTER_INIT u32 multiboot_flags;
-READONLY_AFTER_INIT multiboot_memory_map_t* multiboot_memory_map;
-READONLY_AFTER_INIT size_t multiboot_memory_map_count;
-READONLY_AFTER_INIT multiboot_module_entry_t* multiboot_modules;
-READONLY_AFTER_INIT size_t multiboot_modules_count;
-READONLY_AFTER_INIT PhysicalAddress multiboot_framebuffer_addr;
-READONLY_AFTER_INIT u32 multiboot_framebuffer_pitch;
-READONLY_AFTER_INIT u32 multiboot_framebuffer_width;
-READONLY_AFTER_INIT u32 multiboot_framebuffer_height;
-READONLY_AFTER_INIT u8 multiboot_framebuffer_bpp;
-READONLY_AFTER_INIT u8 multiboot_framebuffer_type;
-}
-
 Atomic<Graphics::Console*> g_boot_console;
 
-extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const& boot_info)
+extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const&)
 {
     g_in_early_boot = true;
 
-    start_of_prekernel_image = PhysicalAddress { boot_info.start_of_prekernel_image };
-    end_of_prekernel_image = PhysicalAddress { boot_info.end_of_prekernel_image };
-    physical_to_virtual_offset = boot_info.physical_to_virtual_offset;
-    kernel_mapping_base = boot_info.kernel_mapping_base;
-    kernel_load_base = boot_info.kernel_load_base;
-    gdt64ptr = boot_info.gdt64ptr;
-    code64_sel = boot_info.code64_sel;
-    boot_pml4t = PhysicalAddress { boot_info.boot_pml4t };
-    boot_pdpt = PhysicalAddress { boot_info.boot_pdpt };
-    boot_pd0 = PhysicalAddress { boot_info.boot_pd0 };
-    boot_pd_kernel = PhysicalAddress { boot_info.boot_pd_kernel };
-    boot_pd_kernel_pt1023 = (Memory::PageTableEntry*)boot_info.boot_pd_kernel_pt1023;
-    kernel_cmdline = (char const*)boot_info.kernel_cmdline;
-    multiboot_flags = boot_info.multiboot_flags;
-    multiboot_memory_map = (multiboot_memory_map_t*)boot_info.multiboot_memory_map;
-    multiboot_memory_map_count = boot_info.multiboot_memory_map_count;
-    multiboot_modules = (multiboot_module_entry_t*)boot_info.multiboot_modules;
-    multiboot_modules_count = boot_info.multiboot_modules_count;
-    multiboot_framebuffer_addr = PhysicalAddress { boot_info.multiboot_framebuffer_addr };
-    multiboot_framebuffer_pitch = boot_info.multiboot_framebuffer_pitch;
-    multiboot_framebuffer_width = boot_info.multiboot_framebuffer_width;
-    multiboot_framebuffer_height = boot_info.multiboot_framebuffer_height;
-    multiboot_framebuffer_bpp = boot_info.multiboot_framebuffer_bpp;
-    multiboot_framebuffer_type = boot_info.multiboot_framebuffer_type;
+    // FIXME: Don't hardcode this
+    multiboot_memory_map_t mmap[] = {
+        { sizeof(struct multiboot_mmap_entry) - sizeof(u32),
+            (u64)0x0,
+            (u64)0x3F000000,
+            MULTIBOOT_MEMORY_AVAILABLE }
+    };
 
-    setup_serial_debug();
+    multiboot_memory_map = mmap;
+    multiboot_memory_map_count = 1;
+
+    multiboot_flags = 0x4;
+    multiboot_copy_boot_modules_count = 1;
+    auto disk_image_start_physical_addr = ((FlatPtr)&disk_image_start - kernel_load_base);
+    multiboot_copy_boot_modules_array[0].start = disk_image_start_physical_addr;
+    multiboot_copy_boot_modules_array[0].end = disk_image_start_physical_addr + disk_image_size;
+
+    // start_of_prekernel_image = PhysicalAddress { boot_info.start_of_prekernel_image };
+    // end_of_prekernel_image = PhysicalAddress { boot_info.end_of_prekernel_image };
+    // physical_to_virtual_offset = boot_info.physical_to_virtual_offset;
+    // kernel_mapping_base = boot_info.kernel_mapping_base;
+    // kernel_load_base = boot_info.kernel_load_base;
+    // gdt64ptr = boot_info.gdt64ptr;
+    // code64_sel = boot_info.code64_sel;
+    // boot_pml4t = PhysicalAddress { boot_info.boot_pml4t };
+    // boot_pdpt = PhysicalAddress { boot_info.boot_pdpt };
+    // boot_pd0 = PhysicalAddress { boot_info.boot_pd0 };
+    // boot_pd_kernel = PhysicalAddress { boot_info.boot_pd_kernel };
+    // boot_pd_kernel_pt1023 = (Memory::PageTableEntry*)boot_info.boot_pd_kernel_pt1023;
+    // kernel_cmdline = (char const*)boot_info.kernel_cmdline;
+    // multiboot_flags = boot_info.multiboot_flags;
+    // multiboot_memory_map = (multiboot_memory_map_t*)boot_info.multiboot_memory_map;
+    // multiboot_memory_map_count = boot_info.multiboot_memory_map_count;
+    // multiboot_modules = (multiboot_module_entry_t*)boot_info.multiboot_modules;
+    // multiboot_modules_count = boot_info.multiboot_modules_count;
+    // multiboot_framebuffer_addr = PhysicalAddress { boot_info.multiboot_framebuffer_addr };
+    // multiboot_framebuffer_pitch = boot_info.multiboot_framebuffer_pitch;
+    // multiboot_framebuffer_width = boot_info.multiboot_framebuffer_width;
+    // multiboot_framebuffer_height = boot_info.multiboot_framebuffer_height;
+    // multiboot_framebuffer_bpp = boot_info.multiboot_framebuffer_bpp;
+    // multiboot_framebuffer_type = boot_info.multiboot_framebuffer_type;
 
     // We need to copy the command line before kmalloc is initialized,
     // as it may overwrite parts of multiboot!
     CommandLine::early_initialize(kernel_cmdline);
-    memcpy(multiboot_copy_boot_modules_array, multiboot_modules, multiboot_modules_count * sizeof(multiboot_module_entry_t));
-    multiboot_copy_boot_modules_count = multiboot_modules_count;
+    // memcpy(multiboot_copy_boot_modules_array, multiboot_modules, multiboot_modules_count * sizeof(multiboot_module_entry_t));
+    // multiboot_copy_boot_modules_count = multiboot_modules_count;
 
     new (&bsp_processor()) Processor();
-    bsp_processor().early_initialize(0);
+    bsp_processor().install(0);
 
     // Invoke the constructors needed for the kernel heap
     for (ctor_func_t* ctor = start_heap_ctors; ctor < end_heap_ctors; ctor++)
@@ -188,7 +179,7 @@ extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const& boot_info)
 
     load_kernel_symbol_table();
 
-    bsp_processor().initialize(0);
+    bsp_processor().initialize();
 
     CommandLine::initialize();
     Memory::MemoryManager::initialize(0);
@@ -196,13 +187,20 @@ extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const& boot_info)
     // NOTE: If the bootloader provided a framebuffer, then set up an initial console.
     // If the bootloader didn't provide a framebuffer, then set up an initial text console.
     // We do so we can see the output on the screen as soon as possible.
-    if (!kernel_command_line().is_early_boot_console_disabled()) {
-        if (!multiboot_framebuffer_addr.is_null() && multiboot_framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
-            g_boot_console = &try_make_lock_ref_counted<Graphics::BootFramebufferConsole>(multiboot_framebuffer_addr, multiboot_framebuffer_width, multiboot_framebuffer_height, multiboot_framebuffer_pitch).value().leak_ref();
-        } else {
-            g_boot_console = &Graphics::VGATextModeConsole::initialize().leak_ref();
-        }
+    // if (!kernel_command_line().is_early_boot_console_disabled()) {
+    //     if (!multiboot_framebuffer_addr.is_null() && multiboot_framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB) {
+    //         g_boot_console = &try_make_lock_ref_counted<Graphics::BootFramebufferConsole>(multiboot_framebuffer_addr, multiboot_framebuffer_width, multiboot_framebuffer_height, multiboot_framebuffer_pitch).value().leak_ref();
+    //     } else {
+    //         g_boot_console = &Graphics::VGATextModeConsole::initialize().leak_ref();
+    //     }
+    // }
+
+    auto& framebuffer = RPi::Framebuffer::the();
+    if (framebuffer.initialized()) {
+        g_boot_console = &try_make_lock_ref_counted<Graphics::BootFramebufferConsole>(PhysicalAddress((PhysicalPtr)framebuffer.gpu_buffer()), framebuffer.width(), framebuffer.height(), framebuffer.pitch()).value().leak_ref();
+        // draw_logo(static_cast<Graphics::BootFramebufferConsole*>(g_boot_console.load())->unsafe_framebuffer_data());
     }
+
     dmesgln("Starting SerenityOS...");
 
     DeviceManagement::initialize();
@@ -213,9 +211,9 @@ extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const& boot_info)
 
     MM.unmap_prekernel();
 
-    // Ensure that the safemem sections are not empty. This could happen if the linker accidentally discards the sections.
-    VERIFY(+start_of_safemem_text != +end_of_safemem_text);
-    VERIFY(+start_of_safemem_atomic_text != +end_of_safemem_atomic_text);
+    // // Ensure that the safemem sections are not empty. This could happen if the linker accidentally discards the sections.
+    // VERIFY(+start_of_safemem_text != +end_of_safemem_text);
+    // VERIFY(+start_of_safemem_atomic_text != +end_of_safemem_atomic_text);
 
     // Invoke all static global constructors in the kernel.
     // Note that we want to do this as early as possible.
@@ -223,7 +221,6 @@ extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const& boot_info)
         (*ctor)();
 
     InterruptManagement::initialize();
-    ACPI::initialize();
 
     // Initialize TimeManagement before using randomness!
     TimeManagement::initialize(0);
@@ -233,13 +230,6 @@ extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const& boot_info)
     Process::initialize();
 
     Scheduler::initialize();
-
-    if (APIC::initialized() && APIC::the().enabled_processor_count() > 1) {
-        // We must set up the AP boot environment before switching to a kernel process,
-        // as pages below address USER_RANGE_BASE are only accessible through the kernel
-        // page directory.
-        APIC::the().setup_ap_boot_environment();
-    }
 
     {
         LockRefPtr<Thread> init_stage2_thread;
@@ -253,38 +243,6 @@ extern "C" [[noreturn]] UNMAP_AFTER_INIT void init(BootInfo const& boot_info)
     VERIFY_NOT_REACHED();
 }
 
-//
-// This is where C++ execution begins for APs, after boot.S transfers control here.
-//
-// The purpose of init_ap() is to initialize APs for multi-tasking.
-//
-extern "C" [[noreturn]] UNMAP_AFTER_INIT void init_ap(FlatPtr cpu, Processor* processor_info)
-{
-    processor_info->early_initialize(cpu);
-
-    processor_info->initialize(cpu);
-    Memory::MemoryManager::initialize(cpu);
-
-    Scheduler::set_idle_thread(APIC::the().get_idle_thread(cpu));
-
-    Scheduler::start();
-    VERIFY_NOT_REACHED();
-}
-
-//
-// This method is called once a CPU enters the scheduler and its idle thread
-// At this point the initial boot stack can be freed
-//
-extern "C" UNMAP_AFTER_INIT void init_finished(u32 cpu)
-{
-    if (cpu == 0) {
-        // TODO: we can reuse the boot stack, maybe for kmalloc()?
-    } else {
-        APIC::the().init_finished(cpu);
-        TimeManagement::initialize(cpu);
-    }
-}
-
 void init_stage2(void*)
 {
     // This is a little bit of a hack. We can't register our process at the time we're
@@ -292,15 +250,9 @@ void init_stage2(void*)
     // The colonel process gets away without having to do this because it never exits.
     Process::register_new(Process::current());
 
-    WorkQueue::initialize();
+    VERIFY_INTERRUPTS_ENABLED();
 
-    if (kernel_command_line().is_smp_enabled() && APIC::initialized() && APIC::the().enabled_processor_count() > 1) {
-        // We can't start the APs until we have a scheduler up and running.
-        // We need to be able to process ICI messages, otherwise another
-        // core may send too many and end up deadlocking once the pool is
-        // exhausted
-        APIC::the().boot_aps();
-    }
+    WorkQueue::initialize();
 
     // Initialize the PCI Bus as early as possible, for early boot (PCI based) serial logging
     PCI::initialize();
@@ -310,13 +262,12 @@ void init_stage2(void*)
 
     VirtualFileSystem::initialize();
 
-    if (!is_serial_debug_enabled())
-        (void)SerialDevice::must_create(0).leak_ref();
-    (void)SerialDevice::must_create(1).leak_ref();
-    (void)SerialDevice::must_create(2).leak_ref();
-    (void)SerialDevice::must_create(3).leak_ref();
+    // if (!is_serial_debug_enabled())
+    //     (void)SerialDevice::must_create(0).leak_ref();
+    // (void)SerialDevice::must_create(1).leak_ref();
+    // (void)SerialDevice::must_create(2).leak_ref();
+    // (void)SerialDevice::must_create(3).leak_ref();
 
-    VMWareBackdoor::the(); // don't wait until first mouse packet
     MUST(HIDManagement::initialize());
 
     GraphicsManagement::the().initialize();
@@ -391,16 +342,6 @@ void init_stage2(void*)
 
     Process::current().sys$exit(0);
     VERIFY_NOT_REACHED();
-}
-
-UNMAP_AFTER_INIT void setup_serial_debug()
-{
-    // serial_debug will output all the dbgln() data to COM1 at
-    // 8-N-1 57600 baud. this is particularly useful for debugging the boot
-    // process on live hardware.
-    if (StringView { kernel_cmdline, strlen(kernel_cmdline) }.contains("serial_debug"sv)) {
-        set_serial_debug_enabled(true);
-    }
 }
 
 // Define some Itanium C++ ABI methods to stop the linker from complaining.

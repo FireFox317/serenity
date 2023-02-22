@@ -938,6 +938,8 @@ ErrorOr<FlatPtr> Process::sys$execve(Userspace<Syscall::SC_execve_params const*>
 
         auto path = TRY(get_syscall_path_argument(params.path));
 
+        dbgln("path: {}", path);
+
         auto copy_user_strings = [](auto const& list, auto& output) -> ErrorOr<void> {
             if (!list.length)
                 return {};

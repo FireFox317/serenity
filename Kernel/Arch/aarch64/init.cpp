@@ -32,6 +32,7 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/Storage/StorageManagement.h>
 #include <Kernel/TTY/VirtualConsole.h>
+#include <Kernel/Tasks/FinalizerTask.h>
 
 typedef void (*ctor_func_t)();
 extern ctor_func_t start_heap_ctors[];
@@ -73,6 +74,8 @@ void init_stage2(void*)
     dmesgln("Firmware version: {}", firmware_version);
 
     VirtualFileSystem::initialize();
+
+    FinalizerTask::spawn();
 
     StorageManagement::the().initialize(kernel_command_line().root_device(), kernel_command_line().is_force_pio(), kernel_command_line().is_nvme_polling_enabled());
     if (VirtualFileSystem::the().mount_root(StorageManagement::the().root_filesystem()).is_error()) {

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define DUMP_REGIONS_ON_CRASH 1
+
 #include <AK/Singleton.h>
 #include <AK/StdLibExtras.h>
 #include <AK/Time.h>
@@ -413,14 +415,25 @@ void signal_trampoline_dummy()
         : "i"(Syscall::SC_sigreturn),
         "i"(offset_to_first_register_slot));
 #elif ARCH(AARCH64)
+    constexpr static auto offset_to_first_register_slot = sizeof(__ucontext) + sizeof(siginfo) + 3 * sizeof(FlatPtr);
     asm(
         ".global asm_signal_trampoline\n"
         "asm_signal_trampoline:\n"
-        // TODO: Implement this when we support userspace for aarch64
-        "wfi\n"
+        "ldr x3, [sp, #0]\n"
+        "str x0, [sp, %[offset_to_first_register_slot]]\n"
+        "ldr x0, [sp, #8]\n"
+        "ldr x1, [sp, #16]\n"
+        "ldr x2, [sp, #24]\n"
+        "add sp, sp, 32\n"
+        "blr x3\n"
+
+        "mov x8, %[sigreturn_syscall_number]\n"
+        "svc #0\n"
+        "brk #0\n"
         "\n"
         ".global asm_signal_trampoline_end\n"
-        "asm_signal_trampoline_end: \n");
+        "asm_signal_trampoline_end: \n" ::[sigreturn_syscall_number] "i"(Syscall::SC_sigreturn),
+        [offset_to_first_register_slot] "i"(offset_to_first_register_slot));
 #else
 #    error Unknown architecture
 #endif

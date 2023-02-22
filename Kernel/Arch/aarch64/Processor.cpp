@@ -8,11 +8,13 @@
 #include <AK/Vector.h>
 
 #include <Kernel/Arch/Processor.h>
+#include <Kernel/Arch/SafeMem.h>
 #include <Kernel/Arch/TrapFrame.h>
 #include <Kernel/Arch/aarch64/ASM_wrapper.h>
 #include <Kernel/Arch/aarch64/CPU.h>
 #include <Kernel/Arch/aarch64/CPUID.h>
 #include <Kernel/InterruptDisabler.h>
+#include <Kernel/Memory/ScopedAddressSpaceSwitcher.h>
 #include <Kernel/Process.h>
 #include <Kernel/Random.h>
 #include <Kernel/Scheduler.h>
@@ -452,10 +454,109 @@ void Processor::exit_trap(TrapFrame& trap)
 
 ErrorOr<Vector<FlatPtr, 32>> Processor::capture_stack_trace(Thread& thread, size_t max_frames)
 {
-    (void)thread;
-    (void)max_frames;
-    TODO_AARCH64();
-    return Vector<FlatPtr, 32> {};
+    FlatPtr frame_ptr = 0, ip = 0;
+    Vector<FlatPtr, 32> stack_trace;
+
+    auto walk_stack = [&](FlatPtr stack_ptr) -> ErrorOr<void> {
+        constexpr size_t max_stack_frames = 4096;
+        bool is_walking_userspace_stack = false;
+        TRY(stack_trace.try_append(ip));
+        size_t count = 1;
+        while (stack_ptr && stack_trace.size() < max_stack_frames) {
+            FlatPtr retaddr;
+
+            count++;
+            if (max_frames != 0 && count > max_frames)
+                break;
+
+            if (!Memory::is_user_address(VirtualAddress { stack_ptr })) {
+                if (is_walking_userspace_stack) {
+                    dbgln("SHENANIGANS! Userspace stack points back into kernel memory");
+                    break;
+                }
+            } else {
+                is_walking_userspace_stack = true;
+            }
+
+            if (Memory::is_user_range(VirtualAddress(stack_ptr), sizeof(FlatPtr) * 2)) {
+                if (copy_from_user(&retaddr, &((FlatPtr*)stack_ptr)[1]).is_error() || !retaddr)
+                    break;
+                TRY(stack_trace.try_append(retaddr));
+                if (copy_from_user(&stack_ptr, (FlatPtr*)stack_ptr).is_error())
+                    break;
+            } else {
+                void* fault_at;
+                if (!safe_memcpy(&retaddr, &((FlatPtr*)stack_ptr)[1], sizeof(FlatPtr), fault_at) || !retaddr)
+                    break;
+                TRY(stack_trace.try_append(retaddr));
+                if (!safe_memcpy(&stack_ptr, (FlatPtr*)stack_ptr, sizeof(FlatPtr), fault_at))
+                    break;
+            }
+        }
+        return {};
+    };
+    auto capture_current_thread = [&]() {
+        frame_ptr = (FlatPtr)__builtin_frame_address(0);
+        ip = (FlatPtr)__builtin_return_address(0);
+
+        return walk_stack(frame_ptr);
+    };
+
+    // Since the thread may be running on another processor, there
+    // is a chance a context switch may happen while we're trying
+    // to get it. It also won't be entirely accurate and merely
+    // reflect the status at the last context switch.
+    SpinlockLocker lock(g_scheduler_lock);
+    if (&thread == Processor::current_thread()) {
+        VERIFY(thread.state() == Thread::State::Running);
+        // Leave the scheduler lock. If we trigger page faults we may
+        // need to be preempted. Since this is our own thread it won't
+        // cause any problems as the stack won't change below this frame.
+        lock.unlock();
+        TRY(capture_current_thread());
+    } else if (thread.is_active()) {
+        VERIFY(thread.cpu() != Processor::current_id());
+        VERIFY_NOT_REACHED();
+    } else {
+        switch (thread.state()) {
+        case Thread::State::Running:
+            VERIFY_NOT_REACHED(); // should have been handled above
+        case Thread::State::Runnable:
+        case Thread::State::Stopped:
+        case Thread::State::Blocked:
+        case Thread::State::Dying:
+        case Thread::State::Dead: {
+            // We need to retrieve ebp from what was last pushed to the kernel
+            // stack. Before switching out of that thread, it switch_context
+            // pushed the callee-saved registers, and the last of them happens
+            // to be ebp.
+            ScopedAddressSpaceSwitcher switcher(thread.process());
+            auto& regs = thread.regs();
+            auto* stack_top = reinterpret_cast<FlatPtr*>(regs.sp());
+            if (Memory::is_user_range(VirtualAddress(stack_top), sizeof(FlatPtr))) {
+                if (copy_from_user(&frame_ptr, &((FlatPtr*)stack_top)[0]).is_error())
+                    frame_ptr = 0;
+            } else {
+                void* fault_at;
+                if (!safe_memcpy(&frame_ptr, &((FlatPtr*)stack_top)[0], sizeof(FlatPtr), fault_at))
+                    frame_ptr = 0;
+            }
+
+            ip = regs.ip();
+
+            // TODO: We need to leave the scheduler lock here, but we also
+            //       need to prevent the target thread from being run while
+            //       we walk the stack
+            lock.unlock();
+            TRY(walk_stack(frame_ptr));
+            break;
+        }
+        default:
+            dbgln("Cannot capture stack trace for thread {} in state {}", thread, thread.state_string());
+            break;
+        }
+    }
+    return stack_trace;
 }
 
 void Processor::check_invoke_scheduler()

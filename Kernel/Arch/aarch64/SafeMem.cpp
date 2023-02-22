@@ -61,7 +61,7 @@ bool safe_atomic_store_relaxed(u32 volatile*, u32)
 
 bool handle_safe_access_fault(RegisterState&, FlatPtr)
 {
-    TODO_AARCH64();
+    // TODO_AARCH64();
     return false;
 }
 

@@ -88,6 +88,8 @@ void Processor::install(u32 cpu)
 
 void Processor::initialize()
 {
+    deferred_call_pool_init();
+
     dmesgln("CPU[{}]: Supports {}", m_cpu, build_cpu_feature_names(m_features));
     dmesgln("CPU[{}]: Physical address bit width: {}", m_cpu, m_physical_address_bit_width);
     dmesgln("CPU[{}]: Virtual address bit width: {}", m_cpu, m_virtual_address_bit_width);
@@ -416,6 +418,10 @@ void Processor::exit_trap(TrapFrame& trap)
     // FIXME: Figure out if we need prev_irq_level, see duplicated code in Kernel/Arch/x86/common/Processor.cpp
     m_in_irq = 0;
 
+    // Process the deferred call queue. Among other things, this ensures
+    // that any pending thread unblocks happen before we enter the scheduler.
+    deferred_call_execute_pending();
+
     auto* current_thread = Processor::current_thread();
     if (current_thread) {
         auto& current_trap = current_thread->current_trap();
@@ -537,6 +543,105 @@ StringView Processor::platform_string()
 void Processor::set_thread_specific_data(VirtualAddress thread_specific_data)
 {
     Aarch64::Asm::set_tpidr_el0(thread_specific_data.get());
+}
+
+UNMAP_AFTER_INIT void Processor::deferred_call_pool_init()
+{
+    size_t pool_count = sizeof(m_deferred_call_pool) / sizeof(m_deferred_call_pool[0]);
+    for (size_t i = 0; i < pool_count; i++) {
+        auto& entry = m_deferred_call_pool[i];
+        entry.next = i < pool_count - 1 ? &m_deferred_call_pool[i + 1] : nullptr;
+        new (entry.handler_storage) DeferredCallEntry::HandlerFunction;
+        entry.was_allocated = false;
+    }
+    m_pending_deferred_calls = nullptr;
+    m_free_deferred_call_pool_entry = &m_deferred_call_pool[0];
+}
+
+void Processor::deferred_call_return_to_pool(DeferredCallEntry* entry)
+{
+    VERIFY(m_in_critical);
+    VERIFY(!entry->was_allocated);
+
+    entry->handler_value() = {};
+
+    entry->next = m_free_deferred_call_pool_entry;
+    m_free_deferred_call_pool_entry = entry;
+}
+
+DeferredCallEntry* Processor::deferred_call_get_free()
+{
+    VERIFY(m_in_critical);
+
+    if (m_free_deferred_call_pool_entry) {
+        // Fast path, we have an entry in our pool
+        auto* entry = m_free_deferred_call_pool_entry;
+        m_free_deferred_call_pool_entry = entry->next;
+        VERIFY(!entry->was_allocated);
+        return entry;
+    }
+
+    auto* entry = new DeferredCallEntry;
+    new (entry->handler_storage) DeferredCallEntry::HandlerFunction;
+    entry->was_allocated = true;
+    return entry;
+}
+
+void Processor::deferred_call_execute_pending()
+{
+    VERIFY(m_in_critical);
+
+    if (!m_pending_deferred_calls)
+        return;
+    auto* pending_list = m_pending_deferred_calls;
+    m_pending_deferred_calls = nullptr;
+
+    // We pulled the stack of pending deferred calls in LIFO order, so we need to reverse the list first
+    auto reverse_list =
+        [](DeferredCallEntry* list) -> DeferredCallEntry* {
+        DeferredCallEntry* rev_list = nullptr;
+        while (list) {
+            auto next = list->next;
+            list->next = rev_list;
+            rev_list = list;
+            list = next;
+        }
+        return rev_list;
+    };
+    pending_list = reverse_list(pending_list);
+
+    do {
+        pending_list->invoke_handler();
+
+        // Return the entry back to the pool, or free it
+        auto* next = pending_list->next;
+        if (pending_list->was_allocated) {
+            pending_list->handler_value().~Function();
+            delete pending_list;
+        } else
+            deferred_call_return_to_pool(pending_list);
+        pending_list = next;
+    } while (pending_list);
+}
+
+void Processor::deferred_call_queue_entry(DeferredCallEntry* entry)
+{
+    VERIFY(m_in_critical);
+    entry->next = m_pending_deferred_calls;
+    m_pending_deferred_calls = entry;
+}
+
+void Processor::deferred_call_queue(Function<void()> callback)
+{
+    // NOTE: If we are called outside of a critical section and outside
+    // of an irq handler, the function will be executed before we return!
+    ScopedCritical critical;
+    auto& cur_proc = Processor::current();
+
+    auto* entry = cur_proc.deferred_call_get_free();
+    entry->handler_value() = move(callback);
+
+    cur_proc.deferred_call_queue_entry(entry);
 }
 
 }

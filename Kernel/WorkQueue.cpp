@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <Kernel/Arch/Processor.h>
 #include <Kernel/Process.h>
 #include <Kernel/Sections.h>
 #include <Kernel/WaitQueue.h>
@@ -28,6 +29,11 @@ UNMAP_AFTER_INIT WorkQueue::WorkQueue(StringView name)
     if (name_kstring.is_error())
         TODO();
     (void)Process::create_kernel_process(thread, name_kstring.release_value(), [this] {
+        // NOTE: We need to disable interrupts, because somewhere in this function Spinlock.unlock
+        //       is called. For x86_64 the default for kernel threads/process is to start with interrupts disabled,
+        //       but for aarch64 the default is to start a threads with interrupts enabled (which seems way more logical anyway).
+        Processor::disable_interrupts();
+
         for (;;) {
             WorkItem* item;
             bool have_more;

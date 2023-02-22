@@ -270,7 +270,7 @@ public:
 
     [[noreturn]] void initialize_context_switching(Thread& initial_thread);
     NEVER_INLINE void switch_context(Thread*& from_thread, Thread*& to_thread);
-    [[noreturn]] static void assume_context(Thread& thread, FlatPtr flags);
+    [[noreturn]] static void assume_context(Thread& thread);
     FlatPtr init_context(Thread& thread, bool leave_crit);
     static ErrorOr<Vector<FlatPtr, 32>> capture_stack_trace(Thread& thread, size_t max_frames = 0);
 

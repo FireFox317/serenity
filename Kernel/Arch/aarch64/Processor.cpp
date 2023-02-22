@@ -263,11 +263,44 @@ void Processor::switch_context(Thread*& from_thread, Thread*& to_thread)
     dbgln_if(CONTEXT_SWITCH_DEBUG, "switch_context <-- from {} {} to {} {}", VirtualAddress(from_thread), *from_thread, VirtualAddress(to_thread), *to_thread);
 }
 
-void Processor::assume_context(Thread& thread, FlatPtr flags)
+void Processor::assume_context(Thread& thread)
 {
-    (void)thread;
-    (void)flags;
-    TODO_AARCH64();
+    dbgln_if(CONTEXT_SWITCH_DEBUG, "Assume context for thread {} {}", VirtualAddress(&thread), thread);
+
+    VERIFY_INTERRUPTS_DISABLED();
+    Scheduler::prepare_after_exec();
+    // in_critical() should be 2 here. The critical section in Process::exec
+    // and then the scheduler lock
+    VERIFY(Processor::in_critical() == 2);
+
+    Processor::current().init_context(thread, true);
+
+    // FIXME: Without this, we crash in Processor::exit_trap.
+    //        Figure out if we're missing something, or what's wrong.
+    thread.current_trap() = nullptr;
+
+    asm volatile(
+        "mov sp, %[to_sp] \n"
+
+        "sub sp, sp, 24 \n"
+        "mov x0, %[from_thread] \n"
+        "mov x1, %[from_thread] \n"
+        "mov x2, %[to_ip] \n"
+
+        "str x0, [sp, #0] \n"
+        "str x1, [sp, #8] \n"
+        "str x2, [sp, #16] \n"
+
+        "bl enter_thread_context \n"
+        "ldr x0, [sp, #16]\n"
+        "br x0 \n"
+        :
+        : [to_sp] "r"(thread.regs().sp_el0),
+        [to_ip] "r"(thread.regs().elr_el1),
+        [from_thread] "r"(&thread)
+        : "memory", "x0", "x1", "x2");
+
+    VERIFY_NOT_REACHED();
 }
 
 FlatPtr Processor::init_context(Thread& thread, bool leave_crit)

@@ -26,6 +26,7 @@
 #include <Kernel/Storage/ATA/GenericIDE/Controller.h>
 #include <Kernel/Storage/NVMe/NVMeController.h>
 #include <Kernel/Storage/Ramdisk/Controller.h>
+#include <Kernel/Storage/SD/SDHostController.h>
 #include <Kernel/Storage/StorageManagement.h>
 #include <LibPartition/EBRPartitionTable.h>
 #include <LibPartition/GUIDPartitionTable.h>
@@ -40,6 +41,7 @@ static Atomic<u32> s_controller_id;
 
 static Atomic<u32> s_relative_ata_controller_id;
 static Atomic<u32> s_relative_nvme_controller_id;
+static Atomic<u32> s_relative_sd_controller_id;
 
 static constexpr StringView partition_uuid_prefix = "PARTUUID:"sv;
 
@@ -65,6 +67,12 @@ u32 StorageManagement::generate_relative_ata_controller_id(Badge<ATAController>)
 {
     auto controller_id = s_relative_ata_controller_id.load();
     s_relative_ata_controller_id++;
+    return controller_id;
+}
+u32 StorageManagement::generate_relative_sd_controller_id(Badge<SDHostController>)
+{
+    auto controller_id = s_relative_sd_controller_id.load();
+    s_relative_sd_controller_id++;
     return controller_id;
 }
 
@@ -445,6 +453,14 @@ UNMAP_AFTER_INIT void StorageManagement::initialize(StringView root_device, bool
     } else {
         enumerate_pci_controllers(force_pio, poll);
     }
+
+    auto sdhc_or_error = SDHostController::try_initialize();
+    if (!sdhc_or_error.is_error()) {
+        m_controllers.append(sdhc_or_error.release_value());
+    } else if (sdhc_or_error.error().code() != ENODEV) {
+        dmesgln("Unable to initialize SD Host Controller: {}", sdhc_or_error.error());
+    }
+
     // Note: Whether PCI bus is present on the system or not, always try to attach
     // a given ramdisk.
     auto controller = RamdiskController::try_initialize();

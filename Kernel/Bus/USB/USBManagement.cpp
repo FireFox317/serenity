@@ -6,6 +6,8 @@
 
 #include <AK/Singleton.h>
 #include <Kernel/Bus/PCI/API.h>
+#include <Kernel/Bus/PCI/Access.h>
+#include <Kernel/Bus/USB/DWC2/DWC2Controller.h>
 #include <Kernel/Bus/USB/UHCI/UHCIController.h>
 #include <Kernel/Bus/USB/USBManagement.h>
 #include <Kernel/CommandLine.h>
@@ -25,6 +27,12 @@ UNMAP_AFTER_INIT USBManagement::USBManagement()
 UNMAP_AFTER_INIT void USBManagement::enumerate_controllers()
 {
     if (kernel_command_line().disable_usb())
+        return;
+
+    if (auto dwc2_controller_or_error = DWC2Controller::try_to_initialize(); !dwc2_controller_or_error.is_error())
+        m_controllers.append(dwc2_controller_or_error.release_value());
+
+    if (PCI::Access::is_disabled())
         return;
 
     MUST(PCI::enumerate([this](PCI::DeviceIdentifier const& device_identifier) {
